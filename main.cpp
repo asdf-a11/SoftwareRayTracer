@@ -509,7 +509,8 @@ int main(){
    cam.pos = Vec3(-4,2,12);
    //cam.pos = Vec3(0);
    cam.dir = Vec3(0,deg2rad(150.f),0);
-   string filePath = "C:\\Users\\willi\\OneDrive - The University of Nottingham\\Documents\\Prog\\cpp\\FastRaytRacer\\Models\\uploads_files_3825299_Low+poly+bedroom_Obj\\triModel.obj";
+   string filePath = "C:\\Users\\willi\\OneDrive - The University of Nottingham\\Documents\\Prog\\GitHubRepos\\SoftwareRayTracer\\Models\\uploads_files_3825299_Low+poly+bedroom_Obj\\triModel.obj";
+   //"C:\\Users\\willi\\OneDrive - The University of Nottingham\\Documents\\Prog\\cpp\\FastRaytRacer\\Models\\uploads_files_3825299_Low+poly+bedroom_Obj\\triModel.obj";
    objectList = ReadMeshFile(filePath);
    objectList[objectList.size()-1].pos = Vec3(-2,-2,5);
 
