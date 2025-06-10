@@ -3,7 +3,9 @@
 #include <string>
 #include <vector>
 
-#define SAFE true
+#ifndef SAFE
+    #define SAFE false
+#endif
 
 #define null 0
 #define EPSILON 1e-6f
@@ -13,6 +15,7 @@
 #define deg2rad(x) ((x)/360.f*2.f*PI)
 #define fnptr(returnType, name, ...) returnType (*name)(__VA_ARGS__)
 #define sq(x) ((x) * (x))
+#define pow3(x) ((x) * sq(x))
 #define loop(i,l,h) for(int i = (l); i < (h); ++i)
 #define loopr(i,l,h) for(int i = (l); i >= (h); --i)
 #define looph(i,n) for(int i = 0; i < (n); ++i)

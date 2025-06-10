@@ -1,3 +1,13 @@
+#ifdef SAFE_THING
+#define SAFE true
+//#define TRACY_ENABLE
+//#define SAFE false
+//#include "Tracy/tracy/Tracy.hpp"
+#else
+#define SAFE false
+#endif
+//#include <stdlib.h>
+#include <malloc.h>
 #include <iostream>
 #include <algorithm>
 #include <set>
@@ -210,7 +220,7 @@ struct SpaceChunk{
             Face& f = worldFaceList[i];
             looph(j,3){
                looph(k,3){
-                    maxSize = std::max(maxSize,abs(f.vertexList[j][k] - avgPos[k]));
+                    maxSize = std::max(maxSize,std::abs(f.vertexList[j][k] - avgPos[k]));
                 } 
             }
         }        
@@ -268,12 +278,12 @@ Vec3 GetRayDir(int x, int y, Vec3 camRot){
     real y_camera = y_ndc * fovScaler;
 
     // Camera space ray
-    Vec3 ray_camera = Vec3(x_camera, y_camera, 1.0f).normalize();
+    Vec3 ray_camera = Vec3(x_camera, y_camera, 1.0f);//.normalize();
 
     // Rotate to world space using camRot (assumes row-major matrix mul order)
     Vec3 ray_world = XRotationMatrix(camRot.x) * (YRotationMatrix(camRot.y) * (ZRotationMatrix(camRot.z) * ray_camera));
 
-    return ray_world.normalize();
+    return ray_world;//.normalize();
 }
 //Returns array with closes space chunk at the end
 void GetNextHitSpaceChunk(Vec3 rayPos, Vec3 rayDir, vector<SpaceChunk*>* spaceChunkList){
@@ -290,18 +300,28 @@ void GetNextHitSpaceChunk(Vec3 rayPos, Vec3 rayDir, vector<SpaceChunk*>* spaceCh
             else{
                 //3. Expand hit node
                 spaceChunkList->pop_back();
-                
+
+                using std::pair;
+                //Allocate space on the stack
                 int numberAdded = last->spaceChunkNumber;
+                pair<SpaceChunk*, real>* buffer = (pair<SpaceChunk*, real>*)alloca(numberAdded * sizeof(pair<SpaceChunk*, real>));
+                //pre-compute distances
                 looph(i,numberAdded){
-                    spaceChunkList->push_back(&last->lst[i]);
+                    SpaceChunk* ptr = &last->lst[i];
+                    buffer[i].first = ptr;
+                    buffer[i].second = (ptr->pos - cam.pos).lengthSquared();
                 }
-                //4. Sort nodes in order of distance from cam
-                
-                std::sort(spaceChunkList->end() - numberAdded, spaceChunkList->end(),
-                    [](const SpaceChunk* a, const SpaceChunk* b) {
-                        return (a->pos - cam.pos).lengthSquared() > (b->pos - cam.pos).lengthSquared();
+                //sort using best algorithum for small numbers like 8
+                std::sort(buffer, buffer + numberAdded, 
+                    [](const auto& a, const auto& b) ->bool{
+                        return a.second > b.second;
                     }
                 );
+                //add all entries onto the end of the vector 
+                //(*spaceChunkList).insert(spaceChunkList->end(), buffer, buffer+numberAdded);              
+                looph(i,numberAdded){
+                    spaceChunkList->push_back(buffer[i].first);
+                }
                 
             }
         }
@@ -329,7 +349,7 @@ real RayFaceCollision(Vec3 rayPos, Vec3 rayDir, Face* facePtr){
     Vec3 edge2 = v2 - v0;
     Vec3 h = cross(rayDir, edge2);
     real a = dot(edge1, h);
-    if (abs(a) < EPSILON) return -1.f; // Parallel
+    if (std::abs(a) < EPSILON) return -1.f; // Parallel
 
     real f = 1.0f / a;
     Vec3 s = rayPos - v0;
@@ -357,7 +377,7 @@ Vec3 GetReflectedRayDir(Vec3 incomingRayDir, Vec3 faceNormal, Face* facePtr, int
     real phi = std::acos(1.f-2.f*y);
     Vec3 sp = Vec3(
         cos(theta)*sin(phi),
-        abs(1.f-2.f*y),
+        std::abs(1.f-2.f*y)+0.01f,
         sin(theta)*sin(phi)        
     );
     Vec3 A = faceNormal;
@@ -368,13 +388,15 @@ Vec3 GetReflectedRayDir(Vec3 incomingRayDir, Vec3 faceNormal, Face* facePtr, int
         A[0] * sp[1] + B[0] * sp[0] + C[0] * sp[2],
         A[1] * sp[1] + B[1] * sp[0] + C[1] * sp[2],
         A[2] * sp[1] + B[2] * sp[0] + C[2] * sp[2]
-    ).normalize();
+    );//.normalize();
 }
-Vec3 CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber, Face* cantHitFace=nullptr){
+Vec3 CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber, vector<SpaceChunk*>& spaceChunkList,
+    Face* cantHitFace=nullptr)
+{
     //Get list of SpaceChunks hit in order of distance
     //May not even need to heap alloc
-    vector<SpaceChunk*> spaceChunkList;
-    spaceChunkList.reserve(8);
+    //vector<SpaceChunk*> spaceChunkList;
+    //spaceChunkList.reserve(pow3(SPACE_CHUNCK_SPLIT) * 3);
     spaceChunkList = {&worldChunk, nullptr};
     bool neverHitFace = true;
     //Vec3 colour = GetSkyColour(rayDir);
@@ -413,7 +435,8 @@ Vec3 CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber, Face* cantHitFace=nullp
                 }
                 looph(rayCounter, SAMPLE_COUNT){
                     Vec3 newDir = GetReflectedRayDir(rayDir, faceNormal, hitFacePtr,  rayCounter, SAMPLE_COUNT);
-                    avgOfColours += CastRay(rayDir*minDistance + rayPos, newDir, bounceNumber + 1, hitFacePtr);
+                    avgOfColours += CastRay(rayDir*minDistance + rayPos, newDir, bounceNumber + 1, spaceChunkList,
+                         hitFacePtr);
                     //cout << newDir.x << " "<< newDir.y << " "<< newDir.z << "\n";
                 }
                 avgOfColours /= SAMPLE_COUNT;
@@ -432,10 +455,12 @@ Vec3 CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber, Face* cantHitFace=nullp
 
 void ExecuteRayTracer(int frameCounter){
     const int step = 5;
+    vector<SpaceChunk*> spaceChunkList;
+    spaceChunkList.reserve(pow3(SPACE_CHUNCK_SPLIT) * 7);
     for(int x = frameCounter % step; x < SCREEN_WIDTH; x += step){
         for(int y = frameCounter % 2; y < SCREEN_HEIGHT; y += 2){
             Vec3 rayDir = GetRayDir(x,y,cam.dir);
-            Vec3 colour = CastRay(cam.pos, rayDir, 0);
+            Vec3 colour = CastRay(cam.pos, rayDir, 0, spaceChunkList);
             screenBuffer[x][y] = colour;
         }
     }
@@ -480,37 +505,19 @@ vector<Face*> GetWorldFacePtrList(){
     }
     return out;
 }
+/*
+$process = Start-Process "your_application.exe" -PassThru
+$process.Id
+
+*/
 int main(){
     using namespace Graphics;
     InitScreenBuffer();
-    Window window(SCREEN_WIDTH,SCREEN_HEIGHT,"Raytracer");
-    window.Init();
-    /*
-    Object obj = Object();
-    obj.pos = Vec3(-0.5,-0.5,3);
-    Vec3 vertList[3]= {
-        Vec3(-1,0,0),
-        Vec3(1,0,0),
-        Vec3(1,1,0)
-    };
-    obj.faceList.push_back(Face(vertList, Vec3(0.9,0.5,0.5), 0.f));
-    objectList.push_back(obj);
 
-    Object obj2 = Object();
-    obj2.pos = Vec3(-0.5,-0.5,3);
-    Vec3 vertList2[3] = {
-        Vec3(-1,0,0),
-        Vec3(1,0,0),
-        Vec3(1,0,-1)
-    };
-    obj2.faceList.push_back(Face(vertList2, Vec3(0.1,0.9,0.1), 1.f));
-    objectList.push_back(obj2);
-    */
    cam.pos = Vec3(-4,2,12);
    //cam.pos = Vec3(0);
    cam.dir = Vec3(0,deg2rad(150.f),0);
    string filePath = "C:\\Users\\willi\\OneDrive - The University of Nottingham\\Documents\\Prog\\GitHubRepos\\SoftwareRayTracer\\Models\\uploads_files_3825299_Low+poly+bedroom_Obj\\triModel.obj";
-   //"C:\\Users\\willi\\OneDrive - The University of Nottingham\\Documents\\Prog\\cpp\\FastRaytRacer\\Models\\uploads_files_3825299_Low+poly+bedroom_Obj\\triModel.obj";
    objectList = ReadMeshFile(filePath);
    objectList[objectList.size()-1].pos = Vec3(-2,-2,5);
 
@@ -521,15 +528,13 @@ int main(){
     //worldChunk.pos = Vec3(-1,1,2);
     worldChunk.SetSizeAndPos();
     worldChunk.Init(&ptrList);
+    #if true == true
+    Window window(SCREEN_WIDTH,SCREEN_HEIGHT,"Raytracer");
+    window.Init();
     worldChunk.PrintInfo();
-    window.StartLoop([](Window* window){
-        /*
-        // Clear the window
-        HDC hdc = GetDC(GetConsoleWindow());
-        RECT rect;
-        GetClientRect(GetConsoleWindow(), &rect);
-        FillRect(hdc, &rect, (HBRUSH)(COLOR_WINDOW+1));
-        */
+    
+        window.StartLoop([](Window* window){
+ 
 
         // Draw a red pixel at (100, 100)
         //window->DrawPixel(100, 100, Vec3(1.0f, 0.0f, 0.0f));
@@ -537,4 +542,10 @@ int main(){
         ExecuteRayTracer(window->frameCounter);
         DrawScreenBuffer(window);
     });
+    #else
+    looph(i,5*2){
+        ExecuteRayTracer(i);
+    }
+    
+    #endif
 }

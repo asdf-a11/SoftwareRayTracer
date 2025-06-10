@@ -1,0 +1,76 @@
+1: no optimization
+Elapsed Time:	11.147s
+    CPU Time:	10.932s
+    Instructions Retired:	122,248,800,000
+    Microarchitecture Usage:	60.4%
+    Total Thread Count:	5
+    Paused Time:	0s
+
+2: optimization turned on
+Elapsed Time:	1.228s
+    CPU Time:	1.200s
+    Instructions Retired:	6,952,800,000
+    Microarchitecture Usage:	34.7%
+    Total Thread Count:	5
+    Paused Time:	0s
+
+3: -march native and loop unrolling
+Elapsed Time:	0.790s
+    CPU Time:	0.747s
+    Instructions Retired:	5,047,200,000
+    Microarchitecture Usage:	37.9%
+    Total Thread Count:	5
+    Paused Time:	0s
+
+4: no exception checking
+Elapsed Time:	0.881s
+    CPU Time:	0.641s
+    Instructions Retired:	4,771,519,247
+    Microarchitecture Usage:	38.8%
+    Total Thread Count:	5
+    Paused Time:	0.031s
+
+5:
+Elapsed Time:	7.889s
+    CPU Time:	5.887s/5
+    Instructions Retired:	44,727,867,688
+    Microarchitecture Usage:	39.5%
+    Total Thread Count:	5
+    Paused Time:	0.272s
+
+6:More spacechunk splits
+Elapsed Time:	6.176s
+    CPU Time:	4.621s
+    Instructions Retired:	36,775,012,788
+    Microarchitecture Usage:	42.0%
+    Total Thread Count:	5
+    Paused Time:	0.235s
+
+7:Removal of normalization
+Elapsed Time:	5.934s
+    CPU Time:	4.523s
+    Instructions Retired:	37,166,333,354
+    Microarchitecture Usage:	42.0%
+    Total Thread Count:	5
+    Paused Time:	0.117s
+
+8:Improoved sort
+Elapsed Time:	5.833s
+    CPU Time:	4.226s
+    Instructions Retired:	32,986,432,679
+    Microarchitecture Usage:	40.9%
+    Total Thread Count:	5
+    Paused Time:	0.241s
+
+9:Re using heaped memory for cast ray
+Elapsed Time:	5.005s
+    CPU Time:	3.635s
+    Instructions Retired:	27,716,451,862
+    Microarchitecture Usage:	40.5%
+    Total Thread Count:	5
+    Paused Time:	0.201s
+
+
+
+
+
