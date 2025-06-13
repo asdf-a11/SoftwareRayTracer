@@ -70,6 +70,26 @@ Elapsed Time:	5.005s
     Total Thread Count:	5
     Paused Time:	0.201s
 
+10: Approx sin function
+Elapsed Time:	4.682s
+    CPU Time:	3.380s
+    Instructions Retired:	27,441,714,921
+    Microarchitecture Usage:	41.5%
+    Total Thread Count:	5
+    Paused Time:	0.191s
+
+11:
+Elapsed Time:	4.677s
+    CPU Time:	3.281s
+    Instructions Retired:	27,142,122,943
+    Microarchitecture Usage:	42.3%
+    Total Thread Count:	5
+    Paused Time:	0.303s
+
+
+
+
+
 
 
 

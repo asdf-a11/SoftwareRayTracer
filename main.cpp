@@ -45,7 +45,7 @@ struct SpaceChunk{
         Vec3 maxNumerator = pos - rayPos + size/2.f; 
 
         looph(i,3){
-            if(rayDir[i] < 0){
+            if(rayDir[i] < 0.f){
                 real temp = maxNumerator[i];
                 maxNumerator[i] = minNumerator[i];
                 minNumerator[i] = temp;
@@ -57,12 +57,16 @@ struct SpaceChunk{
 
         bool right = true;
         real smallestMax = maxVals.min();
+        /*
         looph(i,3){
             if(minVals[i] > smallestMax){
                 return false;
             }
+        }*/
+        if(minVals[0] > smallestMax||minVals[1] > smallestMax||minVals[2]>smallestMax){
+            return false;
         }
-        return smallestMax > 0;
+        return (smallestMax>0.f);
 
 
         /*
@@ -265,6 +269,18 @@ Matrix ZRotationMatrix(real ang){
     };
     return Matrix(lst);
 }
+real ApproxSin(real angle){
+    real sign = (angle < 0.f) ? -1.f : 1.f;
+    real normAngle = std::abs(angle) / (2.f * PI);
+    normAngle -= std::floor(normAngle);
+    
+    real o = (normAngle < 0.5f) ? normAngle : -(normAngle-1.f);
+    return 16.f * (normAngle-0.5f) * o * sign;
+    //return 20.6f * normAngle * (normAngle - 0.5f) * (normAngle - 1.f) * sign;
+}
+real ApproxCos(real angle){
+    return ApproxSin(angle + PI / 2.f);
+}
 Vec3 GetRayDir(int x, int y, Vec3 camRot){
     // Normalized Device Coordinates (-1 to 1)
     real x_ndc = (real)x / (real)SCREEN_WIDTH * 2.f - 1.f;
@@ -368,7 +384,7 @@ Vec3 GetSkyColour(Vec3 rayDir){
     return Vec3(0.9,0.9,1.f) * std::min(std::max(0.2f,a*2.f), 1.f);
 }
 Vec3 GetReflectedRayDir(Vec3 incomingRayDir, Vec3 faceNormal, Face* facePtr, int rayNumber, int numberOfSamples){
-    using std::cos; using std::sin;
+    //using std::cos; using std::sin;
     const real goldenRatio = (1.f + sqrt(5.f)) / 2.f;
     real x = (real)rayNumber / goldenRatio;
     x = x - std::floor(x);
@@ -376,9 +392,9 @@ Vec3 GetReflectedRayDir(Vec3 incomingRayDir, Vec3 faceNormal, Face* facePtr, int
     real theta = 2.f * PI * x;
     real phi = std::acos(1.f-2.f*y);
     Vec3 sp = Vec3(
-        cos(theta)*sin(phi),
+        ApproxCos(theta)*ApproxSin(phi),
         std::abs(1.f-2.f*y)+0.01f,
-        sin(theta)*sin(phi)        
+        ApproxSin(theta)*ApproxSin(phi)        
     );
     Vec3 A = faceNormal;
     Vec3 B = (facePtr->vertexList[1] - facePtr->vertexList[0]).normalize();
@@ -528,7 +544,7 @@ int main(){
     //worldChunk.pos = Vec3(-1,1,2);
     worldChunk.SetSizeAndPos();
     worldChunk.Init(&ptrList);
-    #if true == true
+    #if false == true
     Window window(SCREEN_WIDTH,SCREEN_HEIGHT,"Raytracer");
     window.Init();
     worldChunk.PrintInfo();

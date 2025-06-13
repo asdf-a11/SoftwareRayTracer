@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
-numberOfSamples = 30
+import math
+numberOfSamples = 50
 def normalize(arr):
     #return arr
     l = 0
@@ -8,18 +9,35 @@ def normalize(arr):
         l += i ** 2
     l **= 0.5
     return arr / l
+def sin(x):
+    #print(x, np.sin(x))
+    sx = -1 if x < 0 else 1
+    nx = abs(x) / (2 * np.pi)
+    nx = nx - math.floor(nx)
+    #v = 20.6 * nx * (nx - 0.5) * (nx - 1) * sx
+    o = nx if nx < 0.5 else -(nx-1)
+    v = 16 * (nx-0.5) * o * sx
+    #print(v)
+    return v
+    pass
+    #return np.sin(x)
+def cos(x):
+    return sin(x + np.pi / 2)
+    return np.cos(x)
+def arccos(x):
+    return np.arccos(x)
 
 def f(rayNumber):
     goldenRation = (1.0 + np.sqrt(5)) / 2
     x = rayNumber / goldenRation
-    x = x - int(x)
+    x = x - math.floor(x)
     y = rayNumber / (numberOfSamples - 1)
     theta = 2 * np.pi * x
-    phi = np.arccos(1.0 - 2.0 * y)
+    phi = arccos(1.0 - 2.0 * y)
     sp = np.array([
-        np.cos(theta)*np.sin(phi),
-        abs(1.0-2.0*y),
-        np.sin(theta)*np.sin(phi) 
+        cos(theta)*sin(phi),
+        abs(1.0-2.0*y)+0.01,
+        sin(theta)*sin(phi) 
     ],dtype=np.float32)
     v0,v1,v2 = np.array([1,0,0],dtype=np.float32),np.array([-1,0,0],dtype=np.float32),np.array([1,1,-1],dtype=np.float32)
     v0v1 = v1 - v0
