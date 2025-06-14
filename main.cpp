@@ -7,6 +7,8 @@
 #define SAFE false
 #endif
 //#include <stdlib.h>
+
+#include <cstring>
 #include <malloc.h>
 #include <iostream>
 #include <algorithm>
@@ -28,13 +30,14 @@ FixedArray<Face> worldFaceList;
 struct SpaceChunk{
     //static constexpr real MIN_SIZE = 1.f;
     //FixedArray<SpaceChunk> lst;
-    SpaceChunk* lst;
+    SpaceChunk* lst = nullptr;
     int spaceChunkNumber = 0;
-    Face** faceList;
+    Face** faceList = nullptr;
     int faceNumber = 0;
     //FixedArray<Face*> faceList;
     Vec3 pos;
     real size;
+    bool isLeaf = false;
 
 
     bool hit(Vec3 rayPos, Vec3 rayDir){
@@ -140,13 +143,14 @@ struct SpaceChunk{
             //#undef face
         }
         //If smallest space split then save faces to self
-        if(size <= SPACE_CHUNK_MIN_SIZE){
+        if(hitFaceList.size() <= SPACE_CHUNK_MAX_FACES && hitFaceList.size() > 0){
             //faceList.AllocArray(hitFaceList.size());
             faceList = new Face*[hitFaceList.size()];
             faceNumber = hitFaceList.size();
             looph(i,hitFaceList.size()){
                 faceList[i] = hitFaceList[i];
             }
+            isLeaf = true;
             //Sets size so perant knows child is not empty
             //return FixedArray<Face*>(hitFaceList.size());
         }
@@ -157,6 +161,7 @@ struct SpaceChunk{
         return hitFaceList;
     }
     void Init(vector<Face*>* faceList){
+        cout << "Size = " << size << "number of faces of perant = " << faceList->size() << "\n";
         //1. Create array of all child space chunks
         SpaceChunk  childList[sq(SPACE_CHUNCK_SPLIT)*SPACE_CHUNCK_SPLIT];
         // 2. Initilize their values
@@ -176,40 +181,96 @@ struct SpaceChunk{
                         stepSize * z
                     );
                     child.size = stepSize;
+                    //Initilize ptr
+                    child.faceList = nullptr;
+                    child.lst = nullptr;
                 }   
             }
         }
         // 3. check face hit children
         int numberOfChildren = 0;
         int nonEmptyChildIndexs[numberof(childList)];
+        int numberOfHitFaces[numberof(childList)];
+        memset(numberOfHitFaces, 0, sizeof(numberOfHitFaces));
         memset(nonEmptyChildIndexs, 0xff, sizeof(nonEmptyChildIndexs));
+        vector<vector<Face*>> listOfHitFaceLists;
+        listOfHitFaceLists.reserve(numberof(childList));
+        int numberOfFacesInChildren = 0;
         looph(i,numberof(childList)){
             vector<Face*> childHitFaceList = childList[i].IntersectingFaces(faceList);
-            //Remove faces that are allready included within a child
-            /*
-            std::set<Face*> removeSet(childHitFaceList.begin(), childHitFaceList.end());
-            faceList->erase(std::remove_if(faceList->begin(), faceList->end(),
-                [&removeSet](Face* x) { return removeSet.find(x) != removeSet.end(); }),
-                faceList->end()
-            );*/
-            //
+            //if(childHitFaceList.size() == faceList->size())
+            //{
+            //    noMoreChildren = true;
+            //    break;
+            //}
+            numberOfFacesInChildren += childHitFaceList.size();
             if(childHitFaceList.size() > 0){
-                if(childList[i].size > SPACE_CHUNK_MIN_SIZE){
-                    childList[i].Init(&childHitFaceList);
-                }
+                numberOfHitFaces[i] = childHitFaceList.size();
+                //if(childList[i].isLeaf == false){
+                //    childList[i].Init(&childHitFaceList);
+                //}
                 nonEmptyChildIndexs[i] = true;
                 numberOfChildren++;
-            }           
+            }      
+            listOfHitFaceLists.push_back(childHitFaceList);     
         }
-        //Save child list to fixed array
-        //lst.AllocArray(numberOfChildren);
-        lst = new SpaceChunk[numberOfChildren];
-        spaceChunkNumber = numberOfChildren;
-        int j = 0;
+        //bool noMoreChildren = false;
+        /*
+        real avgRemoveFacePercent = 0.f;
         looph(i,numberof(childList)){
-            if(nonEmptyChildIndexs[i] != -1){
-                lst[j++] = childList[i];
+            if(listOfHitFaceLists[i].size() > 0){
+                avgRemoveFacePercent += (real)std::labs(listOfHitFaceLists[i].size() - faceList->size()) / (real)faceList->size();
             }            
+        }
+        avgRemoveFacePercent /= numberOfChildren;
+        */
+        real limit = (real)faceList->size() * SPACE_CHUNK_DUPLICATE_FACE;
+        if(numberOfFacesInChildren >= limit){
+            //Set the current node to be a leaf node
+            this->faceList = new Face*[faceList->size()];
+            faceNumber = faceList->size();
+            looph(i,faceNumber){
+                this->faceList[i] = (*faceList)[i];
+            }
+            isLeaf = true;
+            //Children might have allocated memory so clean up their memory
+            looph(i,numberof(childList)){
+                childList[i].FreeMemory();
+            }            
+        }
+        else{
+            //Initlize children that need to be initilized
+            looph(i,numberof(childList)){
+                if(childList[i].isLeaf == false && listOfHitFaceLists[i].size() > 0){
+                    childList[i].Init(&(listOfHitFaceLists[i]));
+                }
+            }
+            //Save child list to fixed array
+            //lst.AllocArray(numberOfChildren);
+            lst = new SpaceChunk[numberOfChildren];
+            spaceChunkNumber = numberOfChildren;
+            int j = 0;
+            looph(i,numberof(childList)){
+                if(nonEmptyChildIndexs[i] != -1){
+                    lst[j++] = childList[i];
+                }            
+            }
+        }
+    }
+    void RemoveNodesWithSingleChild(){
+        looph(i,spaceChunkNumber){
+            if(lst[i].spaceChunkNumber == 1){
+                cout << "Removed node with single child\n";
+                //Create copy of child all points should remain valid
+                SpaceChunk childOfChild = lst[i].lst[0];
+                //Destroy child
+                lst[i].FreeMemory();
+                //Replace with child
+                lst[i] = childOfChild;
+            }
+        }
+        looph(i,spaceChunkNumber){
+            lst[i].RemoveNodesWithSingleChild();
         }
     }
     void Create4VertFaces(vector<Face*>* faceRemovalList){
@@ -386,6 +447,14 @@ struct SpaceChunk{
         size = maxSize*2.f;
         pos = avgPos;
     }
+    void FreeMemory(){
+        if(lst != nullptr){
+            delete[] lst;
+        }
+        if(faceList != nullptr){
+            delete[] faceList;
+        }
+    }
 };
 struct Cam{
     Vec3 dir = Vec3(0);
@@ -464,7 +533,7 @@ void GetNextHitSpaceChunk(Vec3 rayPos, Vec3 rayDir, vector<SpaceChunk*>* spaceCh
     while(spaceChunkList->size() != 0){
         SpaceChunk* last = (*spaceChunkList)[spaceChunkList->size()-1];
         if(last->hit(rayPos, rayDir)){            
-            if(last->size <= SPACE_CHUNK_MIN_SIZE){
+            if(last->isLeaf){
                 //x. Return when base level node is hit
                 break;
             }
@@ -716,7 +785,7 @@ int main(){
    cam.pos = Vec3(-4,2,12);
    //cam.pos = Vec3(0);
    cam.dir = Vec3(0,deg2rad(150.f),0);
-   string filePath = "C:\\Users\\willi\\OneDrive - The University of Nottingham\\Documents\\Prog\\GitHubRepos\\SoftwareRayTracer\\Models\\uploads_files_3825299_Low+poly+bedroom_Obj\\triModel.obj";
+   string filePath = "/home/william/Documents/Prog/GitHubRepos/SoftwareRayTracer/Models/uploads_files_3825299_Low+poly+bedroom_Obj/triModel.obj";
    objectList = ReadMeshFile(filePath);
    objectList[objectList.size()-1].pos = Vec3(-2,-2,5);
 
@@ -727,6 +796,7 @@ int main(){
     //worldChunk.pos = Vec3(-1,1,2);
     worldChunk.SetSizeAndPos();
     worldChunk.Init(&ptrList);
+    worldChunk.RemoveNodesWithSingleChild();
     vector<Face*> facesToRemove;
     worldChunk.Create4VertFaces(&facesToRemove);
     cout << "Number of faces removed -> " << facesToRemove.size() << "\n";
@@ -738,14 +808,30 @@ int main(){
     window.Init();
     worldChunk.PrintInfo();
     
-        window.StartLoop([](Window* window){
+    window.StartLoop([](Graphics::Window* window){
  
 
         // Draw a red pixel at (100, 100)
         //window->DrawPixel(100, 100, Vec3(1.0f, 0.0f, 0.0f));
-        
+        //cout << "New Frame\n";
         ExecuteRayTracer(window->frameCounter);
         DrawScreenBuffer(window);
+
+        //window->DrawPixel(10,10, 
+        //            Vec3(0.5,0.5,0));
+        /*
+
+        int counter = 0;
+        looph(r,255){
+            looph(g,255){
+                looph(b,255){
+                    window->DrawPixel(counter%SCREEN_WIDTH, (counter / SCREEN_WIDTH) % SCREEN_HEIGHT, 
+                    Vec3((real)r / 255.f,(real)g / 255.f,(real)b / 255.f));
+                    counter++;
+                }
+            }
+        }
+        */
     });
     #else
     looph(frameCounter, 1){

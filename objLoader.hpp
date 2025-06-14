@@ -1,5 +1,5 @@
 #pragma once
-#include <String>
+#include <string>
 #include <fstream>
 #include "Util.hpp"
 #include "Object.hpp"
@@ -34,7 +34,8 @@ void FillWorldMatList(string fileName){
     using std::stof;
     std::ifstream file(fileName);
     if(file.is_open() == false){
-        cerr << "Couldnt open the file for mats " << fileName << "!!!\n";
+        cerr << "\n\nCouldnt open the file for mats " << fileName << "!!!\n\n";
+        exit(EXIT_FAILURE);
     }
     vector<Mat> matList = {Mat()};
     //Default mat for shapes with no mat
@@ -47,6 +48,7 @@ void FillWorldMatList(string fileName){
         string lineMeaning = wordList[0];
         if(lineMeaning == "newmtl"){
             Mat m;
+            m.em = 0.f;
             memset(m.name, null, sizeof(m.name));
             memcpy(m.name, wordList[1].c_str(), std::min(NAME_SIZE-1, (int)wordList[1].size()) * sizeof(char));
             //m.name[NAME_SIZE-1] = null;
@@ -74,7 +76,8 @@ vector<Object> ReadMeshFile(string fileName){
     //string contents = FileToString(fileName);
     std::ifstream file(fileName);
     if(file.is_open() == false){
-        cerr << "Couldnt open the file " << fileName << "!!!\n";
+        cerr << "\n\nCouldnt open the file " << fileName << "!!!\n\n";
+        exit(EXIT_FAILURE);
     }
     vector<Vec3> currentObjVertList;
     string line;
@@ -94,7 +97,11 @@ vector<Object> ReadMeshFile(string fileName){
         }
         else if(lineMeaning == "mtllib"){
             string newFileName = fileName;
-            while(newFileName[newFileName.size()-1] != '\\'){
+            if(newFileName.size() == 0){
+                cerr << "Invalid material file name!!\n";
+                exit(EXIT_FAILURE);
+            }
+            while(newFileName[newFileName.size()-1] != DIR_SEPERATOR){
                 newFileName.pop_back();
             }
             newFileName += wordList[1];
@@ -111,7 +118,8 @@ vector<Object> ReadMeshFile(string fileName){
                 }
             }
             if(index == -1){
-                cerr << "Could find mat"; for(;;){}
+                cerr << "\nCould find mat!!\n"; 
+                exit(EXIT_FAILURE);
             }
             currentMatIndex = index;
         }
@@ -124,7 +132,7 @@ vector<Object> ReadMeshFile(string fileName){
             looph(i,3){
                 if(vertIndex[i] >= currentObjVertList.size() || vertIndex[i] < 0){
                     cerr << "Invalid vert number\n";
-                    for(;;){}
+                    exit(EXIT_FAILURE);
                 }
             }
             Vec3 vertList[3] = {

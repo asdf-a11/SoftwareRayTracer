@@ -102,6 +102,17 @@ Elapsed Time:	4.545s
     Total Thread Count:	5
     Paused Time:	0.142s
 
+14: same as 13 but on red desktop not laptop
+    2.536049175 seconds time elapsed
+
+    2.527674000 seconds user
+    0.007998000 seconds sys
+
+15:Dynamic spacial splits and remove of 1 child nodes
+    2.131884241 seconds time elapsed
+
+    2.100031000 seconds user
+    0.023000000 seconds sys
 
 
 

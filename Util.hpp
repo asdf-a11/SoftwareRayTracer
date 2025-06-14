@@ -7,6 +7,12 @@
     #define SAFE false
 #endif
 
+#ifdef _WIN32
+#define DIR_SEPERATOR '\\'
+#else
+#define DIR_SEPERATOR '/'
+#endif
+
 #define null 0
 #define EPSILON 1e-5f //1e-6f
 #define numberof(x) (sizeof(x)/sizeof(x[0]))
@@ -23,6 +29,10 @@
 #define loopvh(v,i,h) for(v i = 0; i < (h); ++i)
 
 #define uint unsigned int
+#define byte unsigned char
+#define uchar byte
+#define ulong unsigned long
+
 
 using std::cout;
 using std::string;
