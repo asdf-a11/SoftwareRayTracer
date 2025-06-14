@@ -78,6 +78,11 @@ struct Vec3{
     Vec3 normalize(){
         return *this / length();
     }
+    bool operator==(Vec3 v){
+        return std::abs(x-v.x) < EPSILON &&
+               std::abs(y-v.y) < EPSILON &&
+               std::abs(z-v.z) < EPSILON;
+    }
 };
 
 real dot(Vec3 a, Vec3 b){

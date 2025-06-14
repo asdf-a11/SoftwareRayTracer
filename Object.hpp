@@ -9,6 +9,7 @@ struct Mat{
 };
 struct Face{
     static const int VERT_COUNT = 3;
+    bool isRectangle = false;
     Mat* mat;
     Vec3 vertexList[VERT_COUNT];
     Vec3 normal;

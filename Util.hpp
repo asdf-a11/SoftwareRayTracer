@@ -8,7 +8,7 @@
 #endif
 
 #define null 0
-#define EPSILON 1e-6f
+#define EPSILON 1e-5f //1e-6f
 #define numberof(x) (sizeof(x)/sizeof(x[0]))
 #define PI 3.141592653589793f
 #define FLOAT_MAX_VALUE (3.4E+37)
@@ -74,3 +74,12 @@ public:
         }        
     }
 };
+template<class T>
+bool in(vector<T>& lst, T value){
+    looph(i,lst.size()){
+        if(lst[i] == value){
+            return true;
+        }
+    }
+    return false;
+}

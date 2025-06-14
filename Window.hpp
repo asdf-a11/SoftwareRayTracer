@@ -53,12 +53,26 @@ namespace Graphics{
 
         }
         void StartLoop(fnptr(void, loopFunction, Window*)){
+            MSG msg = {0};
             while (true) { 
-                //Pump();
-                loopFunction(this);
-                // Set pixel at (100, 100) to red
-                frameCounter++;
-                if(frameCounter > 1000000)frameCounter = 0;
+                bool bRet = PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);
+
+                if (bRet) {
+                    // A message was retrieved
+                    if (msg.message == WM_QUIT) {
+                        break; // Exit the loop when WM_QUIT is received
+                    }
+
+                    TranslateMessage(&msg); // Translate virtual-key messages into character messages
+                    DispatchMessage(&msg);
+                }
+                else{
+                    //Pump();
+                    loopFunction(this);
+                    // Set pixel at (100, 100) to red
+                    frameCounter++;
+                    if(frameCounter > 1000000)frameCounter = 0;
+                }
             }
         }
         void DrawPixel(int x, int y, Vec3 colour){

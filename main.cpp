@@ -38,6 +38,23 @@ struct SpaceChunk{
 
 
     bool hit(Vec3 rayPos, Vec3 rayDir){
+        #if true
+        real v1 = (pos[0] - rayPos[0] - size/2.f) / rayDir[0];
+        real v2 = (pos[0] - rayPos[0] + size/2.f) / rayDir[0];
+        real minValue = std::min(v1,v2);
+        real maxValue = std::max(v1,v2);
+        loop(i,1,3){
+            v1 = (pos[i] - rayPos[i] - size/2.f) / rayDir[i];
+            v2 = (pos[i] - rayPos[i] + size/2.f) / rayDir[i];
+            if(std::min(v1,v2) >= maxValue || std::max(v1,v2) <= minValue){
+                return false;
+            }
+            maxValue = std::min(std::max(v1,v2), maxValue);
+            minValue = std::max(std::min(v1,v2), minValue);
+        }
+        return maxValue > 0.f;
+        #else
+        
         Vec3 minVals;
         Vec3 maxVals;
 
@@ -55,19 +72,13 @@ struct SpaceChunk{
         minVals = minNumerator / rayDir;
         maxVals = maxNumerator / rayDir;
 
-        bool right = true;
         real smallestMax = maxVals.min();
-        /*
-        looph(i,3){
-            if(minVals[i] > smallestMax){
-                return false;
-            }
-        }*/
         if(minVals[0] > smallestMax||minVals[1] > smallestMax||minVals[2]>smallestMax){
             return false;
         }
         return (smallestMax>0.f);
-
+        
+       #endif
 
         /*
         //Algorithum for hitting self
@@ -199,6 +210,150 @@ struct SpaceChunk{
             if(nonEmptyChildIndexs[i] != -1){
                 lst[j++] = childList[i];
             }            
+        }
+    }
+    void Create4VertFaces(vector<Face*>* faceRemovalList){
+        //cout << "Running 4 vec\n";
+        //vector<Face*> faceRemovalList;
+        //1.Find matching vertecies
+        looph(faceCounter1, faceNumber){
+            Face* facePtr1 = faceList[faceCounter1];
+            if(in(*faceRemovalList, facePtr1)){continue;}
+            looph(faceCounter2, faceNumber){
+                Face* facePtr2 = faceList[faceCounter2];
+                if(facePtr1 == facePtr2){continue;}
+                if(in(*faceRemovalList, facePtr2)){continue;}
+                //Check if two verticies the same
+                int sameCounter = 0;
+                //Record vertex that is not the same
+                int notSameIndexForFace1 = -1;                
+                looph(vertCounter1, 3){
+                    Vec3 vert = facePtr1->vertexList[vertCounter1];
+                    int equalToAny = vertCounter1;
+                    looph(vertCounter2, 3){
+                        if(vert == facePtr2->vertexList[vertCounter2]){
+                            sameCounter++;
+                            equalToAny = -1;
+                            break;
+                        }
+                    }
+                    if(equalToAny != -1){
+                        notSameIndexForFace1 = equalToAny;
+                    }
+                }
+                //if two vertex arent the same then face pair dont work
+                if(sameCounter != 2){
+                    continue;
+                }
+                //Get index of other vert that is not the same
+                int notSameIndexForFace2 = -1;
+                looph(vertCounter2, 3){
+                    notSameIndexForFace2 = vertCounter2;
+                    looph(vertCounter1, 3){
+                        if(facePtr1->vertexList[vertCounter1] == facePtr2->vertexList[vertCounter2]){
+                            notSameIndexForFace2 = -1;
+                        }
+                    }
+                    if(notSameIndexForFace2 != -1){
+                        break;
+                    }
+                }
+                #if false
+                looph(i,3){
+                    cout << "Vert " << facePtr1->vertexList[i] << "\n";
+                }
+                looph(i,3){
+                    cout << "Vert " << facePtr2->vertexList[i] << "\n";
+                }
+                cout << "Non hit vert 1 " << facePtr1->vertexList[notSameIndexForFace1] << "\n";
+                cout << "Non hit vert 2 " << facePtr2->vertexList[notSameIndexForFace2] << "\n";
+                #endif
+
+                //Compare non-same vertex
+                //P is not same for face 1, F is not same for face 2
+                //P + I + J = F
+                Vec3 P = facePtr1->vertexList[notSameIndexForFace1];
+                Vec3 I = facePtr1->vertexList[(notSameIndexForFace1 + 1) % 3] - P;
+                Vec3 J = facePtr1->vertexList[(notSameIndexForFace1 + 2) % 3] - P;
+                Vec3 F = facePtr2->vertexList[notSameIndexForFace2];
+                if(P + I + J == F){
+                    //cout << "4 vertexing face! face index 1 and 2 " << faceCounter1 << ", " <<faceCounter2 <<"\n";
+                    //Set face 1 to be 4 vertex
+                    facePtr1->isRectangle = true;
+                    //IMPORTANT
+                    //not same vertex NEEDS to be the first vertex so then I and J vectors are correct
+                    if(notSameIndexForFace1 != 0){
+                        Vec3 temp = facePtr1->vertexList[0];
+                        facePtr1->vertexList[0] = facePtr1->vertexList[notSameIndexForFace1];
+                        facePtr1->vertexList[notSameIndexForFace1] = temp;
+                        notSameIndexForFace1 = 0;                        
+                    }
+                    
+
+                    faceRemovalList->push_back(facePtr2);
+                    /*
+                    //Re alloc face list and remove pointer to dud face.
+                    Face** newFaceList = new Face*[faceNumber-1];
+                    looph(i,faceNumber-1){
+                        if(faceList[i] == facePtr2){continue;}
+                        newFaceList[i] = faceList[i];
+                    }
+                    faceNumber--;
+                    //free(faceList);
+                    delete[] faceList;
+                    faceList = newFaceList;
+                    //Deleteing current face so allready pointing to next face
+                    faceCounter2--;
+                    */
+                }
+            }
+        }
+        //Remove dud faces
+        /*
+        if(faceRemovalList.size() > 0){
+            int newFaceSize = faceNumber - faceRemovalList.size();
+            Face** newFaceList = new Face*[newFaceSize];
+            int newFaceCounter = 0;
+            looph(i,faceNumber){
+                if(in(faceRemovalList, faceList[i])){continue;}
+                newFaceList[newFaceCounter] = faceList[i];
+                newFaceCounter++;
+            }       
+            delete[] faceList;
+            faceList = newFaceList;
+            faceNumber = newFaceSize; 
+        }  
+            */     
+        //4.Call function on children
+        looph(i,spaceChunkNumber){
+            lst[i].Create4VertFaces(faceRemovalList);
+        }
+    }
+    void RemoveDudFaces(vector<Face*>* ptr){
+        vector<int> idxToRemove;
+        looph(i, faceNumber){
+            looph(j, ptr->size()){
+                if((*ptr)[j] == faceList[i]){
+                    idxToRemove.push_back(i);
+                    break;
+                }
+            }            
+        }
+        if(idxToRemove.size() > 0){
+            int newSize = faceNumber - idxToRemove.size();
+            Face** newLst = new Face*[newSize];
+            int j = 0;
+            looph(i,faceNumber){
+                if(in(idxToRemove,i)){continue;}
+                newLst[j] = faceList[i];
+                j++;
+            }
+            delete[] faceList;
+            faceList = newLst;
+            faceNumber = newSize;
+        }
+        looph(i,spaceChunkNumber){
+            lst[i].RemoveDudFaces(ptr);
         }
     }
     void PrintInfo(int tabNumber=0){
@@ -358,6 +513,7 @@ void PrintFaceList(Face* lst, int size){
     }
 }
 real RayFaceCollision(Vec3 rayPos, Vec3 rayDir, Face* facePtr){
+    //V0 IS ALLWAYS UNIQUE VERTEX FOR WHEN isRectangle is true
     Vec3& v0 = facePtr->vertexList[0];
     Vec3& v1 = facePtr->vertexList[1];
     Vec3& v2 = facePtr->vertexList[2];
@@ -374,7 +530,13 @@ real RayFaceCollision(Vec3 rayPos, Vec3 rayDir, Face* facePtr){
 
     Vec3 q = cross(s, edge1);
     real v = f * dot(rayDir, q);
-    if (v < 0.0f || u + v > 1.0f) return -1.f;
+    if(facePtr->isRectangle){
+        if(v < 0.0f || v > 1.0f) return -1.f;
+    }
+    else{
+        if (v < 0.0f || u + v > 1.0f) return -1.f;
+    }
+    
 
     real t = f * dot(edge2, q);
     return t;
@@ -499,6 +661,25 @@ void DrawScreenBuffer(Graphics::Window* window){
     }
 }
 void GenerateWorldFaceList(vector<Object>& objList){
+    /*
+    //1.Get list of all faces and make their positions relitive to world pos
+    vector<Face> faceList;
+    looph(i,objList.size()){
+        looph(f,objList[i].faceList.size()){
+            Face face = objList[i].faceList[f];
+            looph(j,3){
+                face.vertexList[j] += objList[i].pos;
+            }
+            faceList.push_back(face);
+        }
+    }
+    //2.Look for all faces with same two vertex then check if rectangle / rhombus
+    looph(faceCounter, faceList.size()){
+
+    }
+    //3.Allocate fixed size array and set normals
+    */
+    
     int totalFaceNumber = 0;
     looph(i,objList.size()){
         totalFaceNumber += objList[i].faceList.size();
@@ -510,9 +691,11 @@ void GenerateWorldFaceList(vector<Object>& objList){
             Face nf = objList[i].faceList[f];
             looph(j,3){nf.vertexList[j] += objList[i].pos;}
             nf.SetNormal();
+            nf.isRectangle = false;
             worldFaceList[counter++] = nf;
         }
     }
+    
 }
 vector<Face*> GetWorldFacePtrList(){
     vector<Face*> out(worldFaceList.size());
@@ -544,7 +727,13 @@ int main(){
     //worldChunk.pos = Vec3(-1,1,2);
     worldChunk.SetSizeAndPos();
     worldChunk.Init(&ptrList);
-    #if false == true
+    vector<Face*> facesToRemove;
+    worldChunk.Create4VertFaces(&facesToRemove);
+    cout << "Number of faces removed -> " << facesToRemove.size() << "\n";
+    cout << "Number of faces " << worldFaceList.size() << "\n";
+    //Remove all 
+    worldChunk.RemoveDudFaces(&facesToRemove);
+    #if false
     Window window(SCREEN_WIDTH,SCREEN_HEIGHT,"Raytracer");
     window.Init();
     worldChunk.PrintInfo();
@@ -559,9 +748,13 @@ int main(){
         DrawScreenBuffer(window);
     });
     #else
-    looph(i,5*2){
-        ExecuteRayTracer(i);
+    looph(frameCounter, 1){
+        //cout << "Frame " << frameCounter << "\n";
+        looph(i,5*2){
+            ExecuteRayTracer(i);
+        }
     }
+
     
     #endif
 }

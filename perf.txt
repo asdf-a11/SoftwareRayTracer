@@ -86,6 +86,25 @@ Elapsed Time:	4.677s
     Total Thread Count:	5
     Paused Time:	0.303s
 
+12: Rendering 5 frames at a time instead of 1 with 4 vertex faces
+Elapsed Time:	20.258s
+    CPU Time:	15.063s
+    Instructions Retired:	133,592,547,141
+    Microarchitecture Usage:	44.7%
+    Total Thread Count:	5
+    Paused Time:	0.885s
+
+13: Same as 12 but rendering 1 frameCounter (room hot prob thermal throttle 5 seconds without new optimization)
+Elapsed Time:	4.545s
+    CPU Time:	3.465s
+    Instructions Retired:	33,095,749,364
+    Microarchitecture Usage:	48.1%
+    Total Thread Count:	5
+    Paused Time:	0.142s
+
+
+
+
 
 
 
