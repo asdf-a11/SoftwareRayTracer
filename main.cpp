@@ -518,7 +518,7 @@ Vec3 GetRayDir(int x, int y, Vec3 camRot){
     real y_camera = y_ndc * fovScaler;
 
     // Camera space ray
-    Vec3 ray_camera = Vec3(x_camera, y_camera, 1.0f);//.normalize();
+    Vec3 ray_camera = Vec3(-x_camera, y_camera, 1.0f);//.normalize();
 
     // Rotate to world space using camRot (assumes row-major matrix mul order)
     Vec3 ray_world = XRotationMatrix(camRot.x) * (YRotationMatrix(camRot.y) * (ZRotationMatrix(camRot.z) * ray_camera));
@@ -526,18 +526,26 @@ Vec3 GetRayDir(int x, int y, Vec3 camRot){
     return ray_world;//.normalize();
 }
 //Returns array with closes space chunk at the end
-void GetNextHitSpaceChunk(Vec3 rayPos, Vec3 rayDir, vector<SpaceChunk*>* spaceChunkList){
+void GetNextHitSpaceChunk(Vec3 rayPos, Vec3 rayDir, vector<SpaceChunk*>* spaceChunkList,bool dontExpandNextSpaceChunk, int* ptr){
     //1. Remove last node as it didn't hit anything in it
     spaceChunkList->pop_back();
     //2. Check hit last node
     while(spaceChunkList->size() != 0){
         SpaceChunk* last = (*spaceChunkList)[spaceChunkList->size()-1];
-        if(last->hit(rayPos, rayDir)){            
+        if(last->hit(rayPos, rayDir)){   
+            (*ptr)++;         
             if(last->isLeaf){
                 //x. Return when base level node is hit
                 break;
             }
             else{
+                //When hit node but doesnt know if minDistance is actually min distance only
+                //need to look at nodes on the same level, perchance im not too sure
+                //if(dontExpandNextSpaceChunk){
+                //    spaceChunkList->resize(0);
+                //    return;
+                //}
+                    
                 //3. Expand hit node
                 spaceChunkList->pop_back();
 
@@ -648,12 +656,15 @@ Vec3 CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber, vector<SpaceChunk*>& sp
     bool neverHitFace = true;
     //Vec3 colour = GetSkyColour(rayDir);
     Vec3 colour = Vec3(0);
+    int spaceChunkHitCounter = 0;
+    real minDistance = FLOAT_MAX_VALUE; 
+    bool dontExpandNextSpaceChunk = false;
     while(true){
-        GetNextHitSpaceChunk(rayPos, rayDir, &spaceChunkList);
+        GetNextHitSpaceChunk(rayPos, rayDir, &spaceChunkList,dontExpandNextSpaceChunk, &spaceChunkHitCounter);
         //colour += Vec3(0.05,0,0);
         if(spaceChunkList.size() == 0){break;}
-        SpaceChunk* chunkToCheck = spaceChunkList[spaceChunkList.size()-1];
-        real minDistance = FLOAT_MAX_VALUE;        
+        //spaceChunkHitCounter++;
+        SpaceChunk* chunkToCheck = spaceChunkList[spaceChunkList.size()-1];               
         Face* hitFacePtr = nullptr;
 
         //colour += Vec3(0,0.1,0);
@@ -672,13 +683,14 @@ Vec3 CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber, vector<SpaceChunk*>& sp
         }
         if(hitFacePtr != nullptr){
             //return colour;
+            #if true
             colour = hitFacePtr->mat->colour * hitFacePtr->mat->em;
             if(bounceNumber < MAX_BOUNCES && hitFacePtr->mat->em < 1.f){
-                Vec3 avgOfColours = Vec3(0,0,0);
+                Vec3 avgOfColours = Vec3(0.f,0.f,0.f);
                 const int SAMPLE_COUNT = SAMPLES_FOR_BOUNCE_NUMBER[bounceNumber];
                 Vec3 faceNormal = hitFacePtr->normal;
-                if(dot(faceNormal, rayDir) > 0){
-                    faceNormal *= -1;
+                if(dot(faceNormal, rayDir) > 0.f){
+                    faceNormal *= -1.f;
                 }
                 looph(rayCounter, SAMPLE_COUNT){
                     Vec3 newDir = GetReflectedRayDir(rayDir, faceNormal, hitFacePtr,  rayCounter, SAMPLE_COUNT);
@@ -689,10 +701,25 @@ Vec3 CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber, vector<SpaceChunk*>& sp
                 avgOfColours /= SAMPLE_COUNT;
                 colour += hitFacePtr->mat->colour * avgOfColours;
             }
+            #else
+
+            union{
+                SpaceChunk* ptr;
+                byte cList[3];
+            };
+            ptr = chunkToCheck;
+            colour = Vec3(cList[0], cList[1], cList[2]) / 255.f;
+            //colour = Vec3(1,0.1,0.1) * 1.f/minDistance;
+            //colour = Vec3(1,0.1,0.1) * 1.f/(real)spaceChunkHitCounter;
+            #endif
             neverHitFace = false;
+            //
+            //if(sq(minDistance) > ())
+            //dontExpandNextSpaceChunk = true;
             break;
         }
     }
+    //colour = Vec3(spaceChunkHitCounter==2,0.1,0.1);
     if(neverHitFace){
         colour = GetSkyColour(rayDir);
         //colour += GetSkyColour(rayDir);
@@ -719,6 +746,13 @@ void InitScreenBuffer(){
     screenBuffer.resize(SCREEN_WIDTH);
     looph(i, SCREEN_WIDTH){
         screenBuffer[i].resize(SCREEN_HEIGHT);
+    }
+}
+void ClearScreenBuffer(){
+    looph(i,screenBuffer.size()){
+        looph(j,screenBuffer[i].size()){
+            screenBuffer[i][j] = Vec3(0); 
+        }
     }
 }
 void DrawScreenBuffer(Graphics::Window* window){
@@ -782,9 +816,12 @@ int main(){
     using namespace Graphics;
     InitScreenBuffer();
 
-   cam.pos = Vec3(-4,2,12);
-   //cam.pos = Vec3(0);
-   cam.dir = Vec3(0,deg2rad(150.f),0);
+   //cam.pos = Vec3(-4,2,12);
+   //cam.dir = Vec3(0,deg2rad(150.f),0);
+
+   cam.pos = Vec3(-4,2,5);
+   cam.dir = Vec3(0,deg2rad(100.f),0);
+
    string filePath = "/home/william/Documents/Prog/GitHubRepos/SoftwareRayTracer/Models/uploads_files_3825299_Low+poly+bedroom_Obj/triModel.obj";
    objectList = ReadMeshFile(filePath);
    objectList[objectList.size()-1].pos = Vec3(-2,-2,5);
@@ -796,6 +833,7 @@ int main(){
     //worldChunk.pos = Vec3(-1,1,2);
     worldChunk.SetSizeAndPos();
     worldChunk.Init(&ptrList);
+    #if true
     worldChunk.RemoveNodesWithSingleChild();
     vector<Face*> facesToRemove;
     worldChunk.Create4VertFaces(&facesToRemove);
@@ -803,7 +841,8 @@ int main(){
     cout << "Number of faces " << worldFaceList.size() << "\n";
     //Remove all 
     worldChunk.RemoveDudFaces(&facesToRemove);
-    #if false
+    #endif
+    #if true
     Window window(SCREEN_WIDTH,SCREEN_HEIGHT,"Raytracer");
     window.Init();
     worldChunk.PrintInfo();
@@ -813,9 +852,37 @@ int main(){
 
         // Draw a red pixel at (100, 100)
         //window->DrawPixel(100, 100, Vec3(1.0f, 0.0f, 0.0f));
-        //cout << "New Frame\n";
+        cout << "New Frame\n";
+        #if false
+        if(window->frameCounter <= 10)
+            ExecuteRayTracer(window->frameCounter);
+        else
+            for(;;){}
+        #else
+        
+        const real speed = 0.025f * 0.25f;
+        Vec3 changeDir = Vec3(0.f);
+        if(true){
+            changeDir += Vec3(window->IsKeyPressed(XK_a) - window->IsKeyPressed(XK_d),window->IsKeyPressed(XK_v) - window->IsKeyPressed(XK_space),window->IsKeyPressed(XK_w) - window->IsKeyPressed(XK_s)) * speed;
+        }        
+        Vec3 oldCamDir = cam.dir;
+
+        
+        if(changeDir != Vec3(0.f) || cam.dir != oldCamDir){
+            ClearScreenBuffer();
+            window->frameCounter = 0;
+            changeDir = changeDir.normalize();
+            cam.pos += XRotationMatrix(cam.dir.x) * (YRotationMatrix(cam.dir.y) * (ZRotationMatrix(cam.dir.z) * changeDir));
+        }       
+        cam.dir += Vec3(0,deg2rad(-window->IsKeyPressed(XK_e) + window->IsKeyPressed(XK_q)),0) * 4.f;
+        //cout << cam.dir << "\n";
         ExecuteRayTracer(window->frameCounter);
+        #endif
         DrawScreenBuffer(window);
+        //cout << window->IsKeyPressed(XK_w) << "\n";
+
+        
+
 
         //window->DrawPixel(10,10, 
         //            Vec3(0.5,0.5,0));

@@ -314,12 +314,95 @@ namespace Graphics{
             return 0;
         }
         */
+       bool keyPressBuffer[256];
+        bool IsKeyPressed(uint keyId){
+            #if SAFE
+                if(keyId > 255)
+                    std::cerr << "Invalid key \n";
+            #endif
+            return keyPressBuffer[keyId];
+        }
         void StartLoop(fnptr(void, loopFunction, Window*)){
             using namespace X11;
+
+
+            X11::XSelectInput(display, window, KeyPressMask | ExposureMask);
+
+            XEvent event;
+            while (true) {
+                memset(keyPressBuffer, false, sizeof(keyPressBuffer));
+                while (XPending(display)) {
+                    XNextEvent(display, &event);
+
+                    switch (event.type) {
+                        case KeyPress: {
+                            char text[255];
+                            KeySym keysym;
+                            XLookupString(&event.xkey, text, sizeof(text), &keysym, NULL);
+
+                            // Print key for debugging
+                            //std::cout << "Key pressed: " << XKeysymToString(keysym) << " (" << keysym << ")" << std::endl;
+
+                            if (keysym == XK_q || keysym == XK_Q) {
+                                //std::cout << "Quit key pressed. Exiting." << std::endl;
+                                //exit(0);
+                            }
+
+                            if(keysym < 256 && keysym >= 0){
+                                keyPressBuffer[keysym] = true;
+                            }
+
+                            // Example: set a simple flag for this key
+                            // You should map keysym to a buffer carefully if you plan to use an array
+                            break;
+                        }
+                    }
+                }
+
+                loopFunction(this);
+
+                // Optional: Reset key flags if needed AFTER loopFunction processes them
+                // memset(keyPressBuffer, false, sizeof(keyPressBuffer));
+
+                frameCounter++;
+            }
+
+            /*
+            XEvent event; // Variable to store X events
             while(true){
+                memset(keyPressBuffer, false, sizeof(keyPressBuffer));
+                while (XPending(display)) {
+                    XNextEvent(display, &event); // Get the next event
+                    // Handle event types
+                    switch (event.type) {
+                        //case Expose:
+                            // When the window is exposed (e.g., first shown, or uncovered)
+                            //if (event.xexpose.count == 0) { // Only redraw for the last expose event
+                            //    std::cout << "Expose event detected. Redrawing..." << std::endl;
+                            //}
+                            //break;
+                        case KeyPress:
+                            // If a key is pressed, check for 'q' to quit
+                            char text[255];
+                            KeySym keysym;
+                            XLookupString(&event.xkey, text, sizeof(text), &keysym, NULL);
+                            if(keysym > 255 || keysym < 0){
+                                std::cerr << "Invalid key id\n";
+                                exit(EXIT_FAILURE);
+                            }
+                            keyPressBuffer[keysym] = true;
+                            //if (keysym == XK_q || keysym == XK_Q) { // Check for 'q' or 'Q' key
+                            //    std::cout << "Quit key pressed. Exiting." << std::endl;
+                            //    running = false; // Set flag to exit loop
+                            //}
+                            break;
+                        // You can add more event types here (e.g., ButtonPress, MotionNotify)
+                    }
+                }
                 loopFunction(this);
                 frameCounter++;
             }
+            */
             // Clean up X11 resources
             XFreeGC(display, gc);        // Free the graphics context
             XDestroyWindow(display, window); // Destroy the window
