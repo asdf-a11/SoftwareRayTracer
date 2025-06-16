@@ -67,7 +67,7 @@ struct Vec3{
         return sq(x) + sq(y) + sq(z);
     }
     real length() {
-        return sqrt(lengthSquared());
+        return std::sqrt(lengthSquared());
     }
     real max(){
         return std::max(std::max(x,y),z);
@@ -83,6 +83,10 @@ struct Vec3{
                std::abs(y-v.y) < EPSILON &&
                std::abs(z-v.z) < EPSILON;
     }
+    bool operator!=(Vec3 v){
+        return !this->operator==(v);
+    }
+
 };
 
 real dot(Vec3 a, Vec3 b){
@@ -103,13 +107,25 @@ Vec3 operator- (Vec3 a, Vec3 b){
         a.z - b.z
     );
 }
-bool operator!= (Vec3 a, Vec3 b){
-    bool out = true;
-    looph(i,3){
-        out = out && (a[i] == b[i]);
-    }
-    return !out;
-}
+//bool operator!= (Vec3 a, Vec3 b){
+//    bool out = true;
+//    looph(i,3){
+//        out = out && (a[i] == b[i]);
+//    }
+//    return !out;
+//}
 std::ostream &operator<<(std::ostream &os, Vec3 const &m) { 
     return os << "Vec3(" << m.x << ", " << m.y << ", " << m.z << ")";
 }
+
+#define C(op) \
+    bool operator op (Vec3 a, Vec3 b){\
+        return (a.x op b.x) && (a.y op b.y) && (a.z op b.z);\
+    }
+
+C(<=);
+C(>=);
+C(<);
+C(>);
+
+#undef C

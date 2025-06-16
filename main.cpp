@@ -1,17 +1,8 @@
-#ifdef SAFE_THING
-#define SAFE true
-//#define TRACY_ENABLE
-//#define SAFE false
-//#include "Tracy/tracy/Tracy.hpp"
-#else
-#define SAFE false
-#endif
-//#include <stdlib.h>
-
 #include <cstring>
 #include <malloc.h>
 #include <iostream>
 #include <algorithm>
+#include <array>
 #include <set>
 #include "Settings.hpp"
 #include "Util.hpp"
@@ -38,6 +29,7 @@ struct SpaceChunk{
     Vec3 pos;
     real size;
     bool isLeaf = false;
+    bool needntProcess;
 
 
     bool hit(Vec3 rayPos, Vec3 rayDir){
@@ -82,98 +74,74 @@ struct SpaceChunk{
         return (smallestMax>0.f);
         
        #endif
-
-        /*
-        //Algorithum for hitting self
-        Vec3 minVals;
-        Vec3 maxVals;
-        //Optimise for SIMD
-        looph(i,3){
-            if(rayDir[i] >= 0){
-                minVals[i] = (pos[i] - rayPos[i] - size/2.f) / rayDir[i];
-                maxVals[i] = (pos[i] - rayPos[i] + size/2.f) / rayDir[i];
+    }
+    vector<Face*> ContainingFaces(SpaceChunk* perantPtr){//vector<Face*>* perantHitFaceList
+        //1. Find all faces that are contained within space chunk
+        vector<Face*> containingFaceList;
+        looph(faceCounter, perantPtr->faceNumber){
+            Face* facePtr = perantPtr->faceList[faceCounter];
+            int sum =  0;
+            Vec3 minVec = pos - Vec3(size/2.f);
+            Vec3 maxVec = pos + Vec3(size/2.f);
+            looph(v,3){
+                sum += minVec <= facePtr->vertexList[v] &&
+                       maxVec >= facePtr->vertexList[v];                
             }
-            else{
-                maxVals[i] = (pos[i] - rayPos[i] + size/2.f) / rayDir[i];
-                minVals[i] = (pos[i] - rayPos[i] - size/2.f) / rayDir[i];
+            //TODO : Rendering bug for rectangles
+            if(sum == 3){
+                containingFaceList.push_back(facePtr);
             }
         }
-        real maxMinVal = minVals.max();
-        real minMaxVal = maxVals.min();
-        
-        //return (maxMinVal > 0) && (maxMinVal > minMaxVal);
-        return (minMaxVal > 0) && (maxMinVal > minMaxVal);   
-        //return (minMaxVal > 0) && (maxMinVal < minMaxVal);    
-        */
+        //2. store all faces (face that are within children are to be removed later)
+        faceNumber = containingFaceList.size();
+        #if SAFE
+            if(faceList != nullptr)
+                cerr << "face list not nullptr\n";
+        #endif
+        faceList = new Face*[faceNumber];
+        looph(i,containingFaceList.size()){
+            faceList[i] = containingFaceList[i];
+        }
+        return containingFaceList;
     }
-    vector<Face*> IntersectingFaces(vector<Face*>* perantHitFaceList){
-        //vector<Face*> l = *perantHitFaceList;
-        vector<Face*> hitFaceList;
-        looph(faceCounter,perantHitFaceList->size()){
-            //#define face (*(*perantHitFaceList)[faceCounter])
-            //Face face = *((*perantHitFaceList)[faceCounter]);
-            Face* facePtr = (*perantHitFaceList)[faceCounter];
-
-            real minx = facePtr->vertexList[0].x;
-            real miny = facePtr->vertexList[0].y;
-            real minz = facePtr->vertexList[0].z;
-
-            real maxx = minx;
-            real maxy = miny;
-            real maxz = minz;
-
-            loop(i,1,3){
-                Vec3 vert = facePtr->vertexList[i];
-                maxx = std::max(maxx, vert.x);
-                maxy = std::max(maxy, vert.y);
-                maxz = std::max(maxz, vert.z);
-
-                minx = std::min(minx, vert.x);
-                miny = std::min(miny, vert.y);
-                minz = std::min(minz, vert.z);
-            }
-        
-            if(minx <= pos.x + size/2.f && maxx >= pos.x-size/2.f){
-                if(miny <= pos.y+size/2.f && maxy >= pos.y - size/2.f){
-                    if(minz <= pos.z + size/2.f && maxz >= pos.z-size/2.f){
-                        hitFaceList.push_back(facePtr);
-                    }
+    //Takes pointer as child not yet part of this space chunk
+    void RemoveFaceContainedInChildren(SpaceChunk* childPtr){
+        vector<int> indexesToRemove;
+        looph(i,faceNumber){
+            Face** childFaceList = childPtr->faceList;
+            bool isIn = false;
+            looph(j,childPtr->faceNumber){
+                if(childFaceList[j] == faceList[i]){
+                    isIn = true;
+                    break;
                 }
             }
-            //#undef face
+            if(isIn){
+                indexesToRemove.push_back(i);
+            }            
         }
-        //If smallest space split then save faces to self
-        if(hitFaceList.size() <= SPACE_CHUNK_MAX_FACES && hitFaceList.size() > 0){
-            //faceList.AllocArray(hitFaceList.size());
-            faceList = new Face*[hitFaceList.size()];
-            faceNumber = hitFaceList.size();
-            looph(i,hitFaceList.size()){
-                faceList[i] = hitFaceList[i];
+        int newFaceNumber = faceNumber - indexesToRemove.size();
+        Face** newFaceList = new Face*[newFaceNumber];
+        int j = 0;
+        looph(i,faceNumber){
+            if(in(indexesToRemove, i) == false){
+                newFaceList[j] = faceList[i];
+                j++;
             }
-            isLeaf = true;
-            //Sets size so perant knows child is not empty
-            //return FixedArray<Face*>(hitFaceList.size());
         }
-        //
-        //FixedArray<Face*> ret(hitFaceList.size());
-        //memcpy(ret.ptr(), &hitFaceList[0], ret.size() * sizeof(Face*));
-        //return ret;
-        return hitFaceList;
+        delete[] faceList;
+        faceList = newFaceList;
+        faceNumber = newFaceNumber;
     }
-    void Init(vector<Face*>* faceList){
-        cout << "Size = " << size << "number of faces of perant = " << faceList->size() << "\n";
+    void Init(){//vector<Face*>* faceList
+        //cout << "Size = " << size << "number of faces of perant = " << faceList->size() << "\n";
         //1. Create array of all child space chunks
-        SpaceChunk  childList[sq(SPACE_CHUNCK_SPLIT)*SPACE_CHUNCK_SPLIT];
+        SpaceChunk  childList[pow3(SPACE_CHUNCK_SPLIT)];
         // 2. Initilize their values
         looph(x,SPACE_CHUNCK_SPLIT){
             looph(y,SPACE_CHUNCK_SPLIT){
                 looph(z,SPACE_CHUNCK_SPLIT){
                     SpaceChunk& child = childList[x*sq(SPACE_CHUNCK_SPLIT)+y*SPACE_CHUNCK_SPLIT+z];
-                    /*
-                    child.pos = pos + Vec3(x*(size/(real)SPACE_CHUNCK_SPLIT),0,0)
-                                    - Vec3(0,y*(size/(real)SPACE_CHUNCK_SPLIT),0)
-                                    + Vec3(0,0,z*(size/(real)SPACE_CHUNCK_SPLIT));
-                    */
                     real stepSize = size / (real)SPACE_CHUNCK_SPLIT;
                     child.pos = pos - Vec3(stepSize/2.f) + Vec3(
                         stepSize * x,
@@ -184,54 +152,56 @@ struct SpaceChunk{
                     //Initilize ptr
                     child.faceList = nullptr;
                     child.lst = nullptr;
+                    child.faceNumber = 0;
+                    child.spaceChunkNumber = 0;
                 }   
             }
         }
-        // 3. check face hit children
-        int numberOfChildren = 0;
-        int nonEmptyChildIndexs[numberof(childList)];
-        int numberOfHitFaces[numberof(childList)];
-        memset(numberOfHitFaces, 0, sizeof(numberOfHitFaces));
-        memset(nonEmptyChildIndexs, 0xff, sizeof(nonEmptyChildIndexs));
-        vector<vector<Face*>> listOfHitFaceLists;
-        listOfHitFaceLists.reserve(numberof(childList));
-        int numberOfFacesInChildren = 0;
-        looph(i,numberof(childList)){
-            vector<Face*> childHitFaceList = childList[i].IntersectingFaces(faceList);
-            //if(childHitFaceList.size() == faceList->size())
-            //{
-            //    noMoreChildren = true;
-            //    break;
-            //}
-            numberOfFacesInChildren += childHitFaceList.size();
-            if(childHitFaceList.size() > 0){
-                numberOfHitFaces[i] = childHitFaceList.size();
-                //if(childList[i].isLeaf == false){
-                //    childList[i].Init(&childHitFaceList);
-                //}
-                nonEmptyChildIndexs[i] = true;
-                numberOfChildren++;
-            }      
-            listOfHitFaceLists.push_back(childHitFaceList);     
+        // 3. Check face hit children
+        std::array<vector<Face*>, numberof(childList)> listOfContainingFaceLists;
+        looph(childIndex,numberof(childList)){
+            listOfContainingFaceLists[childIndex] = childList[childIndex].ContainingFaces(this);
+            RemoveFaceContainedInChildren(&childList[childIndex]);
         }
-        //bool noMoreChildren = false;
-        /*
-        real avgRemoveFacePercent = 0.f;
+        //4. Decide if current space chunk is going to be a leaf node        
+        int numberOfNonZeroChildren = 0;
+        real containedFaceAvg = 0.f;
         looph(i,numberof(childList)){
-            if(listOfHitFaceLists[i].size() > 0){
-                avgRemoveFacePercent += (real)std::labs(listOfHitFaceLists[i].size() - faceList->size()) / (real)faceList->size();
-            }            
-        }
-        avgRemoveFacePercent /= numberOfChildren;
-        */
-        real limit = (real)faceList->size() * SPACE_CHUNK_DUPLICATE_FACE;
-        if(numberOfFacesInChildren >= limit){
-            //Set the current node to be a leaf node
-            this->faceList = new Face*[faceList->size()];
-            faceNumber = faceList->size();
-            looph(i,faceNumber){
-                this->faceList[i] = (*faceList)[i];
+            if(childList[i].faceNumber != 0){
+                containedFaceAvg += (real)childList[i].faceNumber;
+                numberOfNonZeroChildren++;
             }
+        }
+        bool noChildren = false;
+        if(numberOfNonZeroChildren == 0){
+            noChildren = true;
+        }
+        else{
+            containedFaceAvg /= (real)numberOfNonZeroChildren;
+            if(containedFaceAvg <= SPACE_CHUNK_MIN_AVG_FACES){
+                noChildren = true;
+            }
+        }
+        if(noChildren){
+            //If not children then move faces into self
+            vector<Face*> missingFaceList;
+            looph(i,numberof(childList)){
+                looph(faceCounter, childList[i].faceNumber){
+                    missingFaceList.push_back(childList[i].faceList[faceCounter]);
+                }
+            }
+            int newFaceNumber = faceNumber + missingFaceList.size();
+            Face** newFaceList = new Face*[newFaceNumber];
+            looph(i,faceNumber){
+                newFaceList[i] = faceList[i];
+            }
+            looph(i,missingFaceList.size()){
+                newFaceList[i+faceNumber] = missingFaceList[i];
+            }
+            faceNumber = newFaceNumber;
+            delete[] faceList;
+            faceList = newFaceList;
+            //
             isLeaf = true;
             //Children might have allocated memory so clean up their memory
             looph(i,numberof(childList)){
@@ -239,38 +209,23 @@ struct SpaceChunk{
             }            
         }
         else{
+            int numberOfChildren = 0;
             //Initlize children that need to be initilized
             looph(i,numberof(childList)){
-                if(childList[i].isLeaf == false && listOfHitFaceLists[i].size() > 0){
-                    childList[i].Init(&(listOfHitFaceLists[i]));
+                if(listOfContainingFaceLists[i].size() != 0){
+                    childList[i].Init();
+                    numberOfChildren++;
                 }
             }
             //Save child list to fixed array
-            //lst.AllocArray(numberOfChildren);
             lst = new SpaceChunk[numberOfChildren];
             spaceChunkNumber = numberOfChildren;
             int j = 0;
             looph(i,numberof(childList)){
-                if(nonEmptyChildIndexs[i] != -1){
+                if(listOfContainingFaceLists[i].size() != 0){
                     lst[j++] = childList[i];
                 }            
             }
-        }
-    }
-    void RemoveNodesWithSingleChild(){
-        looph(i,spaceChunkNumber){
-            if(lst[i].spaceChunkNumber == 1){
-                cout << "Removed node with single child\n";
-                //Create copy of child all points should remain valid
-                SpaceChunk childOfChild = lst[i].lst[0];
-                //Destroy child
-                lst[i].FreeMemory();
-                //Replace with child
-                lst[i] = childOfChild;
-            }
-        }
-        looph(i,spaceChunkNumber){
-            lst[i].RemoveNodesWithSingleChild();
         }
     }
     void Create4VertFaces(vector<Face*>* faceRemovalList){
@@ -352,39 +307,9 @@ struct SpaceChunk{
                     
 
                     faceRemovalList->push_back(facePtr2);
-                    /*
-                    //Re alloc face list and remove pointer to dud face.
-                    Face** newFaceList = new Face*[faceNumber-1];
-                    looph(i,faceNumber-1){
-                        if(faceList[i] == facePtr2){continue;}
-                        newFaceList[i] = faceList[i];
-                    }
-                    faceNumber--;
-                    //free(faceList);
-                    delete[] faceList;
-                    faceList = newFaceList;
-                    //Deleteing current face so allready pointing to next face
-                    faceCounter2--;
-                    */
                 }
             }
-        }
-        //Remove dud faces
-        /*
-        if(faceRemovalList.size() > 0){
-            int newFaceSize = faceNumber - faceRemovalList.size();
-            Face** newFaceList = new Face*[newFaceSize];
-            int newFaceCounter = 0;
-            looph(i,faceNumber){
-                if(in(faceRemovalList, faceList[i])){continue;}
-                newFaceList[newFaceCounter] = faceList[i];
-                newFaceCounter++;
-            }       
-            delete[] faceList;
-            faceList = newFaceList;
-            faceNumber = newFaceSize; 
-        }  
-            */     
+        }   
         //4.Call function on children
         looph(i,spaceChunkNumber){
             lst[i].Create4VertFaces(faceRemovalList);
@@ -525,59 +450,42 @@ Vec3 GetRayDir(int x, int y, Vec3 camRot){
 
     return ray_world;//.normalize();
 }
-//Returns array with closes space chunk at the end
-void GetNextHitSpaceChunk(Vec3 rayPos, Vec3 rayDir, vector<SpaceChunk*>* spaceChunkList,bool dontExpandNextSpaceChunk, int* ptr){
-    //1. Remove last node as it didn't hit anything in it
-    spaceChunkList->pop_back();
-    //2. Check hit last node
+void GetNextHitSpaceChunk(Vec3 rayPos, Vec3 rayDir, vector<SpaceChunk*>* spaceChunkList){
+    using std::pair;
+    //1. Expand front node
+    SpaceChunk* last = (*spaceChunkList)[spaceChunkList->size()-1];
+    //Expand hit node
+    spaceChunkList->pop_back();                
+    //Allocate space on the stack
+    int numberAdded = last->spaceChunkNumber;
+    pair<SpaceChunk*, real>* buffer = (pair<SpaceChunk*, real>*)alloca(numberAdded * sizeof(pair<SpaceChunk*, real>));
+    //pre-compute distances
+    looph(i,numberAdded){
+        SpaceChunk* ptr = &last->lst[i];
+        buffer[i].first = ptr;
+        buffer[i].second = (ptr->pos - cam.pos).lengthSquared();
+    }
+    //sort
+    std::sort(buffer, buffer + numberAdded, 
+        [](const auto& a, const auto& b) ->bool{
+            return a.second > b.second;
+        }
+    );
+    //add all entries onto the end of the vector               
+    looph(i,numberAdded){
+        buffer[i].first->needntProcess = false;
+        spaceChunkList->push_back(buffer[i].first);
+    }    
+    //2. pop untill hit
     while(spaceChunkList->size() != 0){
-        SpaceChunk* last = (*spaceChunkList)[spaceChunkList->size()-1];
-        if(last->hit(rayPos, rayDir)){   
-            (*ptr)++;         
-            if(last->isLeaf){
-                //x. Return when base level node is hit
-                break;
-            }
-            else{
-                //When hit node but doesnt know if minDistance is actually min distance only
-                //need to look at nodes on the same level, perchance im not too sure
-                //if(dontExpandNextSpaceChunk){
-                //    spaceChunkList->resize(0);
-                //    return;
-                //}
-                    
-                //3. Expand hit node
-                spaceChunkList->pop_back();
-
-                using std::pair;
-                //Allocate space on the stack
-                int numberAdded = last->spaceChunkNumber;
-                pair<SpaceChunk*, real>* buffer = (pair<SpaceChunk*, real>*)alloca(numberAdded * sizeof(pair<SpaceChunk*, real>));
-                //pre-compute distances
-                looph(i,numberAdded){
-                    SpaceChunk* ptr = &last->lst[i];
-                    buffer[i].first = ptr;
-                    buffer[i].second = (ptr->pos - cam.pos).lengthSquared();
-                }
-                //sort using best algorithum for small numbers like 8
-                std::sort(buffer, buffer + numberAdded, 
-                    [](const auto& a, const auto& b) ->bool{
-                        return a.second > b.second;
-                    }
-                );
-                //add all entries onto the end of the vector 
-                //(*spaceChunkList).insert(spaceChunkList->end(), buffer, buffer+numberAdded);              
-                looph(i,numberAdded){
-                    spaceChunkList->push_back(buffer[i].first);
-                }
-                
-            }
+        last = (*spaceChunkList)[spaceChunkList->size()-1];
+        if(last->hit(rayPos, rayDir)){
+            break;
         }
         else{
-            //4. Remove node if not hit
             spaceChunkList->pop_back();
         }
-    }    
+    }   
 }
 void PrintFaceList(Face* lst, int size){
     auto printVertex = [](Vec3 v){
@@ -608,6 +516,7 @@ real RayFaceCollision(Vec3 rayPos, Vec3 rayDir, Face* facePtr){
     Vec3 q = cross(s, edge1);
     real v = f * dot(rayDir, q);
     if(facePtr->isRectangle){
+        //return -1.f;
         if(v < 0.0f || v > 1.0f) return -1.f;
     }
     else{
@@ -645,96 +554,97 @@ Vec3 GetReflectedRayDir(Vec3 incomingRayDir, Vec3 faceNormal, Face* facePtr, int
         A[2] * sp[1] + B[2] * sp[0] + C[2] * sp[2]
     );//.normalize();
 }
-Vec3 CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber, vector<SpaceChunk*>& spaceChunkList,
+Vec3 CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber,
     Face* cantHitFace=nullptr)
 {
-    //Get list of SpaceChunks hit in order of distance
-    //May not even need to heap alloc
-    //vector<SpaceChunk*> spaceChunkList;
-    //spaceChunkList.reserve(pow3(SPACE_CHUNCK_SPLIT) * 3);
-    spaceChunkList = {&worldChunk, nullptr};
-    bool neverHitFace = true;
-    //Vec3 colour = GetSkyColour(rayDir);
-    Vec3 colour = Vec3(0);
-    int spaceChunkHitCounter = 0;
+    static vector<SpaceChunk*> spaceChunkList;
+    spaceChunkList.clear();// Keep capacity
+    spaceChunkList.push_back(&worldChunk);
+    Vec3 colour = Vec3(0.f);
     real minDistance = FLOAT_MAX_VALUE; 
-    bool dontExpandNextSpaceChunk = false;
-    while(true){
-        GetNextHitSpaceChunk(rayPos, rayDir, &spaceChunkList,dontExpandNextSpaceChunk, &spaceChunkHitCounter);
-        //colour += Vec3(0.05,0,0);
-        if(spaceChunkList.size() == 0){break;}
-        //spaceChunkHitCounter++;
-        SpaceChunk* chunkToCheck = spaceChunkList[spaceChunkList.size()-1];               
-        Face* hitFacePtr = nullptr;
-
-        //colour += Vec3(0,0.1,0);
-        //neverHitFace = false;
-        //break;
-        
-        looph(faceCounter, chunkToCheck->faceNumber){
-            Face* currentFacePtr = chunkToCheck->faceList[faceCounter];
-            if(currentFacePtr == cantHitFace){continue;}
-            //Face collision function called here
-            real t = RayFaceCollision(rayPos, rayDir, currentFacePtr);
-            if(t > EPSILON && t < minDistance){
-                minDistance = t;
-                hitFacePtr = currentFacePtr;
-            }
-        }
-        if(hitFacePtr != nullptr){
-            //return colour;
-            #if true
-            colour = hitFacePtr->mat->colour * hitFacePtr->mat->em;
-            if(bounceNumber < MAX_BOUNCES && hitFacePtr->mat->em < 1.f){
-                Vec3 avgOfColours = Vec3(0.f,0.f,0.f);
-                const int SAMPLE_COUNT = SAMPLES_FOR_BOUNCE_NUMBER[bounceNumber];
-                Vec3 faceNormal = hitFacePtr->normal;
-                if(dot(faceNormal, rayDir) > 0.f){
-                    faceNormal *= -1.f;
+    Face* hitFacePtr = nullptr;
+    bool onlyLeafNodes = false;
+    while(spaceChunkList.size() != 0){
+        //Get faces from current space chunk        
+        auto ColWithSpaceChunk = [&](SpaceChunk* spaceChunkPtr) -> bool{
+            bool hasHitFace = false;
+            looph(faceCounter, spaceChunkPtr->faceNumber){
+                Face* facePtr = spaceChunkPtr->faceList[faceCounter];
+                if(facePtr == cantHitFace){continue;}
+                //Face collision function called here
+                real t = RayFaceCollision(rayPos, rayDir, facePtr);
+                //if(sq(t) > minDistance){break;}
+                if(t > 0.f && t < minDistance){
+                    minDistance = t;
+                    hitFacePtr = facePtr;
+                    hasHitFace = true;
                 }
-                looph(rayCounter, SAMPLE_COUNT){
-                    Vec3 newDir = GetReflectedRayDir(rayDir, faceNormal, hitFacePtr,  rayCounter, SAMPLE_COUNT);
-                    avgOfColours += CastRay(rayDir*minDistance + rayPos, newDir, bounceNumber + 1, spaceChunkList,
-                         hitFacePtr);
-                    //cout << newDir.x << " "<< newDir.y << " "<< newDir.z << "\n";
-                }
-                avgOfColours /= SAMPLE_COUNT;
-                colour += hitFacePtr->mat->colour * avgOfColours;
             }
-            #else
-
-            union{
-                SpaceChunk* ptr;
-                byte cList[3];
-            };
-            ptr = chunkToCheck;
-            colour = Vec3(cList[0], cList[1], cList[2]) / 255.f;
-            //colour = Vec3(1,0.1,0.1) * 1.f/minDistance;
-            //colour = Vec3(1,0.1,0.1) * 1.f/(real)spaceChunkHitCounter;
-            #endif
-            neverHitFace = false;
-            //
-            //if(sq(minDistance) > ())
-            //dontExpandNextSpaceChunk = true;
+            return hasHitFace;
+        };
+        SpaceChunk* last = spaceChunkList[spaceChunkList.size()-1];        
+        if(last->needntProcess){
             break;
         }
+        bool hasHitFace = ColWithSpaceChunk(last);
+        //if(last->size <= worldChunk.size/std::powf(2.f,4)){break;}
+        if(hasHitFace){
+            if(last->isLeaf){
+                break;
+            }
+            else{
+                //set Next node at current level to need not process
+                //because a collision in a closer AABB has happend
+                if(spaceChunkList.size() >= 2){
+                    spaceChunkList[spaceChunkList.size()-2]->needntProcess = true;
+                }                
+            }
+        }
+        //Get next hit space chunk
+        GetNextHitSpaceChunk(rayPos, rayDir, &spaceChunkList);
     }
-    //colour = Vec3(spaceChunkHitCounter==2,0.1,0.1);
-    if(neverHitFace){
+    if(hitFacePtr != nullptr){
+        #if true
+        colour = hitFacePtr->mat->colour * hitFacePtr->mat->em;
+        if(bounceNumber < MAX_BOUNCES && hitFacePtr->mat->em < 1.f){
+            Vec3 avgOfColours = Vec3(0.f,0.f,0.f);
+            const int SAMPLE_COUNT = SAMPLES_FOR_BOUNCE_NUMBER[bounceNumber];
+            Vec3 faceNormal = hitFacePtr->normal;
+            if(dot(faceNormal, rayDir) > 0.f){
+                faceNormal *= -1.f;
+            }
+            looph(rayCounter, SAMPLE_COUNT){
+                Vec3 newDir = GetReflectedRayDir(rayDir, faceNormal, hitFacePtr,  rayCounter, SAMPLE_COUNT);
+                avgOfColours += CastRay(rayDir*minDistance + rayPos, newDir, bounceNumber+1,hitFacePtr);
+            }
+            avgOfColours /= SAMPLE_COUNT;
+            colour += hitFacePtr->mat->colour * avgOfColours;
+        }
+        #else
+        union{
+            SpaceChunk* ptr;
+            byte cList[3];
+        };
+        ptr = chunkToCheck;
+        colour = Vec3(cList[0], cList[1], cList[2]) / 255.f;
+        //colour = Vec3(1,0.1,0.1) * 1.f/minDistance;
+        //colour = Vec3(1,0.1,0.1) * 1.f/(real)spaceChunkHitCounter;
+        #endif
+    }
+    else{
         colour = GetSkyColour(rayDir);
-        //colour += GetSkyColour(rayDir);
     }
     return colour;
 }
 
 void ExecuteRayTracer(int frameCounter){
     const int step = 5;
-    vector<SpaceChunk*> spaceChunkList;
-    spaceChunkList.reserve(pow3(SPACE_CHUNCK_SPLIT) * 7);
+    //vector<SpaceChunk*> spaceChunkList;
+    //spaceChunkList.reserve(pow3(SPACE_CHUNCK_SPLIT) * 7);
     for(int x = frameCounter % step; x < SCREEN_WIDTH; x += step){
         for(int y = frameCounter % 2; y < SCREEN_HEIGHT; y += 2){
             Vec3 rayDir = GetRayDir(x,y,cam.dir);
-            Vec3 colour = CastRay(cam.pos, rayDir, 0, spaceChunkList);
+            Vec3 colour = CastRay(cam.pos, rayDir, 0);
             screenBuffer[x][y] = colour;
         }
     }
@@ -763,26 +673,7 @@ void DrawScreenBuffer(Graphics::Window* window){
         //window->Pump();
     }
 }
-void GenerateWorldFaceList(vector<Object>& objList){
-    /*
-    //1.Get list of all faces and make their positions relitive to world pos
-    vector<Face> faceList;
-    looph(i,objList.size()){
-        looph(f,objList[i].faceList.size()){
-            Face face = objList[i].faceList[f];
-            looph(j,3){
-                face.vertexList[j] += objList[i].pos;
-            }
-            faceList.push_back(face);
-        }
-    }
-    //2.Look for all faces with same two vertex then check if rectangle / rhombus
-    looph(faceCounter, faceList.size()){
-
-    }
-    //3.Allocate fixed size array and set normals
-    */
-    
+void GenerateWorldFaceList(vector<Object>& objList){    
     int totalFaceNumber = 0;
     looph(i,objList.size()){
         totalFaceNumber += objList[i].faceList.size();
@@ -807,11 +698,6 @@ vector<Face*> GetWorldFacePtrList(){
     }
     return out;
 }
-/*
-$process = Start-Process "your_application.exe" -PassThru
-$process.Id
-
-*/
 int main(){
     using namespace Graphics;
     InitScreenBuffer();
@@ -827,14 +713,19 @@ int main(){
    objectList[objectList.size()-1].pos = Vec3(-2,-2,5);
 
     GenerateWorldFaceList(objectList);
-    //PrintFaceList(worldFaceList.lst, worldFaceList.size());
     vector<Face*> ptrList = GetWorldFacePtrList();
-    //worldChunk.size = 2;
-    //worldChunk.pos = Vec3(-1,1,2);
     worldChunk.SetSizeAndPos();
-    worldChunk.Init(&ptrList);
+    //worldChunk.ContainingFaces(&ptrList);
+    //Write all faces into world chunk
+    {
+        worldChunk.faceList = new Face*[ptrList.size()];
+        worldChunk.faceNumber = ptrList.size();
+        looph(i,ptrList.size()){
+            worldChunk.faceList[i] = ptrList[i];
+        }
+    }
+    worldChunk.Init();
     #if true
-    worldChunk.RemoveNodesWithSingleChild();
     vector<Face*> facesToRemove;
     worldChunk.Create4VertFaces(&facesToRemove);
     cout << "Number of faces removed -> " << facesToRemove.size() << "\n";

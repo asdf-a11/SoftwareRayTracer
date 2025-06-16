@@ -3,21 +3,23 @@
 #include <string>
 #include <vector>
 
-#ifndef SAFE
+#ifndef SAFE_DEF
     #define SAFE false
+#else
+    #define SAFE true
 #endif
 
 #ifdef _WIN32
-#define DIR_SEPERATOR '\\'
+    #define DIR_SEPERATOR '\\'
 #else
-#define DIR_SEPERATOR '/'
+    #define DIR_SEPERATOR '/'
 #endif
 
 #define null 0
 #define EPSILON 1e-5f //1e-6f
 #define numberof(x) (sizeof(x)/sizeof(x[0]))
 #define PI 3.141592653589793f
-#define FLOAT_MAX_VALUE (3.4E+37)
+#define FLOAT_MAX_VALUE (3.4E+37f)
 #define deg2rad(x) ((real)(x)/360.f*2.f*PI)
 #define fnptr(returnType, name, ...) returnType (*name)(__VA_ARGS__)
 #define sq(x) ((x) * (x))
