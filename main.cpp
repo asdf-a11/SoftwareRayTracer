@@ -561,49 +561,46 @@ Vec3 CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber,
     spaceChunkList.clear();// Keep capacity
     spaceChunkList.push_back(&worldChunk);
     Vec3 colour = Vec3(0.f);
+    //Get list of SpaceChunks hit in order of distance
+    //May not even need to heap alloc
+    //vector<SpaceChunk*> spaceChunkList;
+    //spaceChunkList.reserve(pow3(SPACE_CHUNCK_SPLIT) * 3);
+    spaceChunkList = {&worldChunk, nullptr};
+    //Vec3 colour = GetSkyColour(rayDir);
+    Vec3 colour = Vec3(0);
+    int spaceChunkHitCounter = 0;
     real minDistance = FLOAT_MAX_VALUE; 
+    bool dontExpandNextSpaceChunk = false;
     Face* hitFacePtr = nullptr;
-    bool onlyLeafNodes = false;
-    while(spaceChunkList.size() != 0){
-        //Get faces from current space chunk        
-        auto ColWithSpaceChunk = [&](SpaceChunk* spaceChunkPtr) -> bool{
-            bool hasHitFace = false;
-            looph(faceCounter, spaceChunkPtr->faceNumber){
-                Face* facePtr = spaceChunkPtr->faceList[faceCounter];
-                if(facePtr == cantHitFace){continue;}
-                //Face collision function called here
-                real t = RayFaceCollision(rayPos, rayDir, facePtr);
-                //if(sq(t) > minDistance){break;}
-                if(t > 0.f && t < minDistance){
-                    minDistance = t;
-                    hitFacePtr = facePtr;
-                    hasHitFace = true;
-                }
-            }
-            return hasHitFace;
-        };
-        SpaceChunk* last = spaceChunkList[spaceChunkList.size()-1];        
-        if(last->needntProcess){
+    while(true){
+        GetNextHitSpaceChunk(rayPos, rayDir, &spaceChunkList,dontExpandNextSpaceChunk, &spaceChunkHitCounter);
+        //colour += Vec3(0.05,0,0);
+        if(spaceChunkList.size() == 0){break;}
+        //spaceChunkHitCounter++;
+        SpaceChunk* chunkToCheck = spaceChunkList[spaceChunkList.size()-1];  
+        //If the bounding box is further than nearist hit             
+        if((chunkToCheck->pos - rayPos).lengthSquared() - sq(chunkToCheck->size/2.f)> sq(minDistance * rayDir.lengthSquared())){
             break;
         }
-        bool hasHitFace = ColWithSpaceChunk(last);
-        //if(last->size <= worldChunk.size/std::powf(2.f,4)){break;}
-        if(hasHitFace){
-            if(last->isLeaf){
-                break;
-            }
-            else{
-                //set Next node at current level to need not process
-                //because a collision in a closer AABB has happend
-                if(spaceChunkList.size() >= 2){
-                    spaceChunkList[spaceChunkList.size()-2]->needntProcess = true;
-                }                
+
+        //colour += Vec3(0,0.1,0);
+        //neverHitFace = false;
+        //break;
+        
+        looph(faceCounter, chunkToCheck->faceNumber){
+            Face* currentFacePtr = chunkToCheck->faceList[faceCounter];
+            if(currentFacePtr == cantHitFace){continue;}
+            //Face collision function called here
+            real t = RayFaceCollision(rayPos, rayDir, currentFacePtr);
+            if(t >= 0.f && t < minDistance){
+                minDistance = t;
+                hitFacePtr = currentFacePtr;
             }
         }
-        //Get next hit space chunk
-        GetNextHitSpaceChunk(rayPos, rayDir, &spaceChunkList);
+        
     }
     if(hitFacePtr != nullptr){
+        //return colour;
         #if true
         colour = hitFacePtr->mat->colour * hitFacePtr->mat->em;
         if(bounceNumber < MAX_BOUNCES && hitFacePtr->mat->em < 1.f){
@@ -615,12 +612,15 @@ Vec3 CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber,
             }
             looph(rayCounter, SAMPLE_COUNT){
                 Vec3 newDir = GetReflectedRayDir(rayDir, faceNormal, hitFacePtr,  rayCounter, SAMPLE_COUNT);
-                avgOfColours += CastRay(rayDir*minDistance + rayPos, newDir, bounceNumber+1,hitFacePtr);
+                avgOfColours += CastRay(rayDir*minDistance + rayPos, newDir, bounceNumber + 1, spaceChunkList,
+                        hitFacePtr);
+                //cout << newDir.x << " "<< newDir.y << " "<< newDir.z << "\n";
             }
             avgOfColours /= SAMPLE_COUNT;
             colour += hitFacePtr->mat->colour * avgOfColours;
         }
         #else
+
         union{
             SpaceChunk* ptr;
             byte cList[3];

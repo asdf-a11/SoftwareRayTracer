@@ -114,13 +114,11 @@ Elapsed Time:	4.545s
     2.100031000 seconds user
     0.023000000 seconds sys
 
-16: Fixed Rendering bug
-      37.841313210 seconds time elapsed
+17:Not breaking too early therefore fixing rendering bug and keeping performance
+           5.100049006 seconds time elapsed
 
-      37.823916000 seconds user
-       0.011998000 seconds sys
-
-17:
+       5.080448000 seconds user
+       0.015988000 seconds sys
 
 
 
