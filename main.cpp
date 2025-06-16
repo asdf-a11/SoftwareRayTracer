@@ -733,7 +733,7 @@ int main(){
     //Remove all 
     worldChunk.RemoveDudFaces(&facesToRemove);
     #endif
-    #if true
+    #if false
     Window window(SCREEN_WIDTH,SCREEN_HEIGHT,"Raytracer");
     window.Init();
     worldChunk.PrintInfo();
@@ -744,6 +744,7 @@ int main(){
         // Draw a red pixel at (100, 100)
         //window->DrawPixel(100, 100, Vec3(1.0f, 0.0f, 0.0f));
         cout << "New Frame\n";
+        //worldChunk.OrderFaces();
         #if false
         if(window->frameCounter <= 10)
             ExecuteRayTracer(window->frameCounter);
