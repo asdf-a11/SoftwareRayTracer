@@ -840,7 +840,7 @@ int main(){
     //Remove all 
     worldChunk.RemoveDudFaces(&facesToRemove);
     #endif
-    #if false
+    #if true
     Window window(SCREEN_WIDTH,SCREEN_HEIGHT,"Raytracer");
     window.Init();
     worldChunk.PrintInfo();
