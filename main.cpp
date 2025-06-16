@@ -554,39 +554,23 @@ Vec3 GetReflectedRayDir(Vec3 incomingRayDir, Vec3 faceNormal, Face* facePtr, int
         A[2] * sp[1] + B[2] * sp[0] + C[2] * sp[2]
     );//.normalize();
 }
-Vec3 CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber,
-    Face* cantHitFace=nullptr)
+Vec3 CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber, Face* cantHitFace=nullptr)
 {
     static vector<SpaceChunk*> spaceChunkList;
     spaceChunkList.clear();// Keep capacity
     spaceChunkList.push_back(&worldChunk);
     Vec3 colour = Vec3(0.f);
-    //Get list of SpaceChunks hit in order of distance
-    //May not even need to heap alloc
-    //vector<SpaceChunk*> spaceChunkList;
-    //spaceChunkList.reserve(pow3(SPACE_CHUNCK_SPLIT) * 3);
-    spaceChunkList = {&worldChunk, nullptr};
-    //Vec3 colour = GetSkyColour(rayDir);
-    Vec3 colour = Vec3(0);
-    int spaceChunkHitCounter = 0;
     real minDistance = FLOAT_MAX_VALUE; 
-    bool dontExpandNextSpaceChunk = false;
     Face* hitFacePtr = nullptr;
     while(true){
-        GetNextHitSpaceChunk(rayPos, rayDir, &spaceChunkList,dontExpandNextSpaceChunk, &spaceChunkHitCounter);
-        //colour += Vec3(0.05,0,0);
+        GetNextHitSpaceChunk(rayPos, rayDir, &spaceChunkList);
         if(spaceChunkList.size() == 0){break;}
-        //spaceChunkHitCounter++;
         SpaceChunk* chunkToCheck = spaceChunkList[spaceChunkList.size()-1];  
         //If the bounding box is further than nearist hit             
         if((chunkToCheck->pos - rayPos).lengthSquared() - sq(chunkToCheck->size/2.f)> sq(minDistance * rayDir.lengthSquared())){
             break;
         }
 
-        //colour += Vec3(0,0.1,0);
-        //neverHitFace = false;
-        //break;
-        
         looph(faceCounter, chunkToCheck->faceNumber){
             Face* currentFacePtr = chunkToCheck->faceList[faceCounter];
             if(currentFacePtr == cantHitFace){continue;}
@@ -600,7 +584,6 @@ Vec3 CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber,
         
     }
     if(hitFacePtr != nullptr){
-        //return colour;
         #if true
         colour = hitFacePtr->mat->colour * hitFacePtr->mat->em;
         if(bounceNumber < MAX_BOUNCES && hitFacePtr->mat->em < 1.f){
@@ -612,9 +595,7 @@ Vec3 CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber,
             }
             looph(rayCounter, SAMPLE_COUNT){
                 Vec3 newDir = GetReflectedRayDir(rayDir, faceNormal, hitFacePtr,  rayCounter, SAMPLE_COUNT);
-                avgOfColours += CastRay(rayDir*minDistance + rayPos, newDir, bounceNumber + 1, spaceChunkList,
-                        hitFacePtr);
-                //cout << newDir.x << " "<< newDir.y << " "<< newDir.z << "\n";
+                avgOfColours += CastRay(rayDir*minDistance + rayPos, newDir, bounceNumber + 1, hitFacePtr);
             }
             avgOfColours /= SAMPLE_COUNT;
             colour += hitFacePtr->mat->colour * avgOfColours;
@@ -661,7 +642,7 @@ void InitScreenBuffer(){
 void ClearScreenBuffer(){
     looph(i,screenBuffer.size()){
         looph(j,screenBuffer[i].size()){
-            screenBuffer[i][j] = Vec3(0); 
+            screenBuffer[i][j] = Vec3(0.f); 
         }
     }
 }
