@@ -450,6 +450,7 @@ Vec3 GetRayDir(int x, int y, Vec3 camRot){
 
     return ray_world;//.normalize();
 }
+/*
 void GetNextHitSpaceChunk(Vec3 rayPos, Vec3 rayDir, vector<SpaceChunk*>* spaceChunkList){
     using std::pair;
     //1. Expand front node
@@ -486,6 +487,61 @@ void GetNextHitSpaceChunk(Vec3 rayPos, Vec3 rayDir, vector<SpaceChunk*>* spaceCh
             spaceChunkList->pop_back();
         }
     }   
+}
+    */
+void GetNextHitSpaceChunk(Vec3 rayPos, Vec3 rayDir, vector<SpaceChunk*>* spaceChunkList){//,bool dontExpandNextSpaceChunk, int* ptr
+    using std::pair;
+    //1. Remove last node as it didn't hit anything in it
+    spaceChunkList->pop_back();
+    //2. Check hit last node
+    while(spaceChunkList->size() != 0){
+        SpaceChunk* last = (*spaceChunkList)[spaceChunkList->size()-1];
+        if(last->hit(rayPos, rayDir)){   
+            //(*ptr)++;         
+            if(last->isLeaf){
+                //x. Return when base level node is hit
+                break;
+            }
+            else{
+                //When hit node but doesnt know if minDistance is actually min distance only
+                //need to look at nodes on the same level, perchance im not too sure
+                //if(dontExpandNextSpaceChunk){
+                //    spaceChunkList->resize(0);
+                //    return;
+                //}
+                    
+                //3. Expand hit node
+                spaceChunkList->pop_back();
+
+                
+                //Allocate space on the stack
+                int numberAdded = last->spaceChunkNumber;
+                pair<SpaceChunk*, real>* buffer = (pair<SpaceChunk*, real>*)alloca(numberAdded * sizeof(pair<SpaceChunk*, real>));
+                //pre-compute distances
+                looph(i,numberAdded){
+                    SpaceChunk* ptr = &last->lst[i];
+                    buffer[i].first = ptr;
+                    buffer[i].second = (ptr->pos - cam.pos).lengthSquared();
+                }
+                //sort using best algorithum for small numbers like 8
+                std::sort(buffer, buffer + numberAdded, 
+                    [](const auto& a, const auto& b) ->bool{
+                        return a.second > b.second;
+                    }
+                );
+                //add all entries onto the end of the vector 
+                //(*spaceChunkList).insert(spaceChunkList->end(), buffer, buffer+numberAdded);              
+                looph(i,numberAdded){
+                    spaceChunkList->push_back(buffer[i].first);
+                }
+                
+            }
+        }
+        else{
+            //4. Remove node if not hit
+            spaceChunkList->pop_back();
+        }
+    }    
 }
 void PrintFaceList(Face* lst, int size){
     auto printVertex = [](Vec3 v){
@@ -536,7 +592,7 @@ Vec3 GetReflectedRayDir(Vec3 incomingRayDir, Vec3 faceNormal, Face* facePtr, int
     const real goldenRatio = (1.f + sqrt(5.f)) / 2.f;
     real x = (real)rayNumber / goldenRatio;
     x = x - std::floor(x);
-    real y = (real)rayNumber / (real)(numberOfSamples-1);///2.f means only generate for hemisphere
+    real y = (real)rayNumber / (real)(numberOfSamples-1);
     real theta = 2.f * PI * x;
     real phi = std::acos(1.f-2.f*y);
     Vec3 sp = Vec3(
