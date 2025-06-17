@@ -6,8 +6,8 @@ My attempt at writing a ray tracer optimised to run on the CPU only.
 
 ### Some of the optimisations implimented
 - BVH(bounding volume heirachy) groupes faces so total number of intersection tests are greatly reduced
-- Use of fibinacci latice for uniform hemisphere sampling, provides less nose for fewer samples compared to random sampling
-- Any two faces which together are either a rectangle or a rhombus are combined so that they can be reprisented by a single face, therefore reducing the total number of faces.
+- Use of fibinacci latice for uniform hemisphere sampling, provides less noise for fewer samples compared to random sampling
+- Any two faces which together form either a rectangle or a rhombus are combined so that they can be reprisented by a single face, therefore reducing the total number of faces.
 
 ### Screenshots
 
