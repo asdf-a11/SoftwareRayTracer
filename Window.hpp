@@ -91,6 +91,10 @@ namespace Graphics{
             }
             SetPixel(hdc, x, y, RGB((int)(colour.x*255.f), (int)(colour.y*255.f), (int)(colour.z*255.f)));
         }
+        bool IsKeyPress(uint keyId){
+            std::cerr << "Appoligies but getting key presses on windows is not implimented yet\n";
+            return false;
+        }
     };
     #else
     //For Linux
@@ -217,103 +221,6 @@ namespace Graphics{
             XDrawPoint(display, window, gc, x, y);
         }
 
-        // Function to handle drawing based on window exposure
-        /*
-        void redrawWindow(int width, int height) {
-            using namespace X11;
-            // Clear the window to its background color
-            XClearWindow(display, window);
-
-            // Example: Draw a red square
-            unsigned long red_color = 0xFF0000; // RRGGBB
-            for (int y = 50; y < 150; ++y) {
-                for (int x = 50; x < 150; ++x) {
-                    if (x >=0 && x < width && y >=0 && y < height) { // Basic bounds check
-                        drawPixel(x, y, red_color);
-                    }
-                }
-            }
-
-            // Example: Draw a green square
-            unsigned long green_color = 0x00FF00;
-            for (int y = height / 2 - 50; y < height / 2 + 50; ++y) {
-                for (int x = width / 2 - 50; x < width / 2 + 50; ++x) {
-                    if (x >=0 && x < width && y >=0 && y < height) {
-                        DrawPixel(x, y, green_color);
-                    }
-                }
-            }
-
-            // Example: Draw a blue square
-            unsigned long blue_color = 0x0000FF;
-            for (int y = height - 150; y < height - 50; ++y) {
-                for (int x = width - 150; x < width - 50; ++x) {
-                    if (x >=0 && x < width && y >=0 && y < height) {
-                        DrawPixel(x, y, blue_color);
-                    }
-                }
-            }
-
-            // Flush the drawing commands
-            XFlush(display);
-        }
-        */
-
-        // Main program loop
-        /*
-        int main(int argc, char *argv[]) {
-            const int WINDOW_WIDTH = 600;
-            const int WINDOW_HEIGHT = 400;
-
-            // Initialize X11 window
-            if (!initX11(WINDOW_WIDTH, WINDOW_HEIGHT, "X11 Pixel Drawing")) {
-                return 1;
-            }
-
-            XEvent event; // Variable to store X events
-            bool running = true;
-
-            // Event loop
-            while (running) {
-                // Check for pending events
-                while (XPending(display)) {
-                    XNextEvent(display, &event); // Get the next event
-
-                    // Handle event types
-                    switch (event.type) {
-                        case Expose:
-                            // When the window is exposed (e.g., first shown, or uncovered)
-                            if (event.xexpose.count == 0) { // Only redraw for the last expose event
-                                std::cout << "Expose event detected. Redrawing..." << std::endl;
-                                redrawWindow(WINDOW_WIDTH, WINDOW_HEIGHT);
-                            }
-                            break;
-                        case KeyPress:
-                            // If a key is pressed, check for 'q' to quit
-                            char text[255];
-                            KeySym keysym;
-                            XLookupString(&event.xkey, text, sizeof(text), &keysym, NULL);
-                            if (keysym == XK_q || keysym == XK_Q) { // Check for 'q' or 'Q' key
-                                std::cout << "Quit key pressed. Exiting." << std::endl;
-                                running = false; // Set flag to exit loop
-                            }
-                            break;
-                        // You can add more event types here (e.g., ButtonPress, MotionNotify)
-                    }
-                }
-                // Small delay to prevent busy-waiting if no events are pending
-                usleep(10000); // Sleep for 10 milliseconds
-            }
-
-            // Clean up X11 resources
-            XFreeGC(display, gc);        // Free the graphics context
-            XDestroyWindow(display, window); // Destroy the window
-            XCloseDisplay(display);      // Close the connection to the X server
-            std::cout << "X11 resources cleaned up. Program finished." << std::endl;
-
-            return 0;
-        }
-        */
        bool keyPressBuffer[256];
         bool IsKeyPressed(uint keyId){
             #if SAFE
@@ -367,42 +274,7 @@ namespace Graphics{
                 frameCounter++;
             }
 
-            /*
-            XEvent event; // Variable to store X events
-            while(true){
-                memset(keyPressBuffer, false, sizeof(keyPressBuffer));
-                while (XPending(display)) {
-                    XNextEvent(display, &event); // Get the next event
-                    // Handle event types
-                    switch (event.type) {
-                        //case Expose:
-                            // When the window is exposed (e.g., first shown, or uncovered)
-                            //if (event.xexpose.count == 0) { // Only redraw for the last expose event
-                            //    std::cout << "Expose event detected. Redrawing..." << std::endl;
-                            //}
-                            //break;
-                        case KeyPress:
-                            // If a key is pressed, check for 'q' to quit
-                            char text[255];
-                            KeySym keysym;
-                            XLookupString(&event.xkey, text, sizeof(text), &keysym, NULL);
-                            if(keysym > 255 || keysym < 0){
-                                std::cerr << "Invalid key id\n";
-                                exit(EXIT_FAILURE);
-                            }
-                            keyPressBuffer[keysym] = true;
-                            //if (keysym == XK_q || keysym == XK_Q) { // Check for 'q' or 'Q' key
-                            //    std::cout << "Quit key pressed. Exiting." << std::endl;
-                            //    running = false; // Set flag to exit loop
-                            //}
-                            break;
-                        // You can add more event types here (e.g., ButtonPress, MotionNotify)
-                    }
-                }
-                loopFunction(this);
-                frameCounter++;
-            }
-            */
+ 
             // Clean up X11 resources
             XFreeGC(display, gc);        // Free the graphics context
             XDestroyWindow(display, window); // Destroy the window

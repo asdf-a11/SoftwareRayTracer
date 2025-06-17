@@ -461,7 +461,7 @@ real RayFaceCollision(Vec3 rayPos, Vec3 rayDir, Face* facePtr){
 }
 Vec3 GetSkyColour(Vec3 rayDir){
     real a = dot(rayDir, Vec3(0.3,1,-0.3).normalize());
-    return Vec3(0.9,0.9,1.f) * std::min(std::max(0.2f,a*2.f), 1.f);
+    return Vec3(0.9,0.9,1.f) * std::min(std::max(0.2f,a*2.f), 1.f) * 0.8f;
 }
 Vec3 GetReflectedRayDir(Vec3 incomingRayDir, Vec3 faceNormal, Face* facePtr, int rayNumber, int numberOfSamples){
     //using std::cos; using std::sin;
@@ -609,10 +609,20 @@ int main(){
     using namespace Graphics;
     InitScreenBuffer();
 
+
+    #if false
+    //Position used for testing test scene
    cam.pos = Vec3(-4,2,5);
    cam.dir = Vec3(0,deg2rad(100.f),0);
+   #else
+    //cam.pos = Vec3(0.38f, 1.f, 9.17f);
+    //cam.dir = Vec3(0,3.63f, 0);
+    cam.pos = Vec3(-6.51, 2, 8.59);
+    cam.dir = Vec3(0, 2.3, 0);
+   #endif
 
-   string filePath = "/home/william/Documents/Prog/GitHubRepos/SoftwareRayTracer/Models/uploads_files_3825299_Low+poly+bedroom_Obj/triModel.obj";
+   string filePath = "Models/uploads_files_3825299_Low+poly+bedroom_Obj/triModel.obj";
+   ////"Models/uploads_files_3581871_LION_STATUE_obj/me.obj";
    objectList = ReadMeshFile(filePath, &worldMatList);
    objectList[objectList.size()-1].pos = Vec3(-2,-2,5);
 
@@ -635,7 +645,7 @@ int main(){
     worldChunk.PrintInfo();
     
     window.StartLoop([](Graphics::Window* window){
-        cout << "New Frame\n";
+        cout << "camPos=" << cam.pos << " camDir=" << cam.dir << "\n";
         #if false
         if(window->frameCounter <= 10)
             ExecuteRayTracer(window->frameCounter);
