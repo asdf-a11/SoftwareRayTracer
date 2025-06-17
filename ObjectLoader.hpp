@@ -1,8 +1,13 @@
 #pragma once
 #include <string>
+#include <cstring>
 #include <fstream>
 #include "Util.hpp"
 #include "Object.hpp"
+#include "Face.hpp"
+#include "Mat.hpp"
+
+using std::string;
 
 string FileToString(string fileName){
     std::ifstream t(fileName);
@@ -30,7 +35,7 @@ vector<string> SplitString(string content, char splitter='\n'){
     }
     return out;
 }
-void FillWorldMatList(string fileName){
+void FillWorldMatList(string fileName, FixedArray<Mat>* worldMatList){
     using std::stof;
     std::ifstream file(fileName);
     if(file.is_open() == false){
@@ -50,7 +55,7 @@ void FillWorldMatList(string fileName){
             Mat m;
             m.em = 0.f;
             memset(m.name, null, sizeof(m.name));
-            memcpy(m.name, wordList[1].c_str(), std::min(NAME_SIZE-1, (int)wordList[1].size()) * sizeof(char));
+            memcpy(m.name, wordList[1].c_str(), std::min(m.NAME_SIZE-1, (int)wordList[1].size()) * sizeof(char));
             //m.name[NAME_SIZE-1] = null;
             matList.push_back(m);
         }
@@ -66,12 +71,12 @@ void FillWorldMatList(string fileName){
         }
     }
     int size = matList.size();
-    worldMatList.AllocArray(size);
+    worldMatList->AllocArray(size);
     looph(i,size){
-        worldMatList[i] = matList[i];
+        (*worldMatList)[i] = matList[i];
     }
 }
-vector<Object> ReadMeshFile(string fileName){
+vector<Object> ReadMeshFile(string fileName, FixedArray<Mat>* worldMatList){
     vector<Object> objList;
     //string contents = FileToString(fileName);
     std::ifstream file(fileName);
@@ -105,13 +110,13 @@ vector<Object> ReadMeshFile(string fileName){
                 newFileName.pop_back();
             }
             newFileName += wordList[1];
-            FillWorldMatList(newFileName);
+            FillWorldMatList(newFileName, worldMatList);
         }
         else if (lineMeaning == "usemtl"){
             string n = wordList[1];
             int index = -1;
-            looph(i,worldMatList.size()){
-                string name = string(worldMatList[i].name);
+            looph(i,worldMatList->size()){
+                string name = string((*worldMatList)[i].name);
                 if(name == n){
                     index = i;
                     break;
@@ -141,7 +146,7 @@ vector<Object> ReadMeshFile(string fileName){
                 currentObjVertList[vertIndex[2]]
             };
             objList[objList.size()-1].faceList.push_back(Face(
-                vertList, &worldMatList[currentMatIndex]
+                vertList, &(*worldMatList)[currentMatIndex]
             ));
         }
     }
