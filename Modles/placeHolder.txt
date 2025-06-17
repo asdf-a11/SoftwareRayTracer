@@ -1,1 +1,0 @@
-I dont think one can have a empty folder in a repo so this file is here just so the Modeles folder can exists. User this folder to put your .obj and .mtl files
