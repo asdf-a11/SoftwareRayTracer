@@ -1,0 +1,1 @@
+File exists so that Models folder can exist because github doesnt allow empty folders. IN this directory place your .obj and .mtl files
