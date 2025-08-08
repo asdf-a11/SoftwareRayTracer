@@ -13,10 +13,12 @@
 
 
 vector<vector<Vec3>> screenBuffer;
+vector<vector<Vec3>> depthBuffer;
 FixedArray<Mat> worldMatList;
 FixedArray<Face> worldFaceList;
 
 #include "SpaceChunk.hpp"
+#include "DeNoiser.hpp"
 
 struct Cam{
     Vec3 dir = Vec3(0.f);
@@ -166,13 +168,15 @@ Vec3 GetReflectedRayDir(Vec3 incomingRayDir, Vec3 faceNormal, Face* facePtr, int
         A[2] * sp[1] + B[2] * sp[0] + C[2] * sp[2]
     );
 }
-Vec3 CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber,  Face* cantHitFace=nullptr)
+//Returns colour and distance of collision
+std::pair<Vec3, Vec3> CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber,  Face* cantHitFace=nullptr)
 {
     static vector<SpaceChunk*> spaceChunkList;
     spaceChunkList.clear();
     spaceChunkList.push_back(&worldChunk);
     spaceChunkList.push_back(nullptr);
     Vec3 colour;
+    Vec3 hitNormal = FLOAT_MAX_VALUE;
     real minDistance = FLOAT_MAX_VALUE;
     Face* hitFacePtr = nullptr;
     while(true){
@@ -198,6 +202,7 @@ Vec3 CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber,  Face* cantHitFace=null
     if(hitFacePtr != nullptr){
         #if true
         colour = hitFacePtr->mat->colour * hitFacePtr->mat->em;
+        hitNormal = hitFacePtr->normal;
         if(bounceNumber < MAX_BOUNCES && hitFacePtr->mat->em < 1.f){
             Vec3 avgOfColours = Vec3(0.f);
             const int SAMPLE_COUNT = SAMPLES_FOR_BOUNCE_NUMBER[bounceNumber];
@@ -207,7 +212,8 @@ Vec3 CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber,  Face* cantHitFace=null
             }
             looph(rayCounter, SAMPLE_COUNT){
                 Vec3 newDir = GetReflectedRayDir(rayDir, faceNormal, hitFacePtr,  rayCounter, SAMPLE_COUNT);
-                avgOfColours += CastRay(rayDir*minDistance + rayPos, newDir, bounceNumber+1, hitFacePtr);
+                std::pair<Vec3, Vec3> rayValues = CastRay(rayDir*minDistance + rayPos, newDir, bounceNumber+1, hitFacePtr);
+                avgOfColours += rayValues.first;
             }
             avgOfColours /= SAMPLE_COUNT;
             colour += hitFacePtr->mat->colour * avgOfColours;
@@ -224,7 +230,7 @@ Vec3 CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber,  Face* cantHitFace=null
     else{
         colour = GetSkyColour(rayDir);
     }
-    return colour;
+    return std::pair<Vec3, Vec3>(colour, hitNormal);
 }
 
 void ExecuteRayTracer(int frameCounter){
@@ -232,24 +238,27 @@ void ExecuteRayTracer(int frameCounter){
     for(int x = frameCounter % step; x < SCREEN_WIDTH; x += step){
         for(int y = frameCounter % 2; y < SCREEN_HEIGHT; y += 2){
             Vec3 rayDir = GetRayDir(x,y,cam.dir);
-            Vec3 colour = CastRay(cam.pos, rayDir, 0);
-            screenBuffer[x][y] = colour;
+            std::pair<Vec3, Vec3> pixelData = CastRay(cam.pos, rayDir, 0);
+            screenBuffer[x][y] = pixelData.first;
+            depthBuffer[x][y] = pixelData.second;
         }
     }
     if(frameCounter % step == 0){
         //cam.pos += Vec3(0,0.05,0.1);
     }
 }
-void InitScreenBuffer(){
+void InitBuffers(){
     screenBuffer.resize(SCREEN_WIDTH);
+    depthBuffer.resize(SCREEN_WIDTH);
     looph(i, SCREEN_WIDTH){
         screenBuffer[i].resize(SCREEN_HEIGHT);
+        depthBuffer[i].resize(SCREEN_HEIGHT);
     }
 }
 void ClearScreenBuffer(){
     looph(i,screenBuffer.size()){
         looph(j,screenBuffer[i].size()){
-            screenBuffer[i][j] = Vec3(0); 
+            screenBuffer[i][j] = Vec3(0);
         }
     }
 }
@@ -286,7 +295,7 @@ vector<Face*> GetWorldFacePtrList(){
 }
 int main(){
     using namespace Graphics;
-    InitScreenBuffer();
+    InitBuffers();
 
     #if false
             //Position used for testing test scene
@@ -326,8 +335,15 @@ int main(){
         #if true
             if(window->frameCounter <= 10)
                 ExecuteRayTracer(window->frameCounter);
-            else
+            else{
+                DeNoiser dn;
+                looph(i,1){
+                    dn.DeNoise(screenBuffer, depthBuffer);
+                }
+                DrawScreenBuffer(window);
+                cout << "Done\n";
                 for(;;){}
+            }
         #else
             const real speed = 0.025f * 0.25f;
             Vec3 changeDir = Vec3(0.f);
