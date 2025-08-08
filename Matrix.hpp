@@ -38,3 +38,30 @@ struct Matrix{
         return out;
     }
 };
+Matrix XRotationMatrix(real ang){
+    using std::cos; using std::sin;
+    Vec3 lst[3] = {
+        Vec3(1,0,0),
+        Vec3(0,cos(ang), -sin(ang)),
+        Vec3(0, sin(ang), cos(ang))
+    };
+    return Matrix(lst);
+}
+Matrix YRotationMatrix(real ang){
+    using std::cos; using std::sin;
+    Vec3 lst[3] = {
+        Vec3(cos(ang),0,sin(ang)),
+        Vec3(0, 1, 0),
+        Vec3(-sin(ang), 0, cos(ang))
+    };
+    return Matrix(lst);
+}
+Matrix ZRotationMatrix(real ang){
+    using std::cos; using std::sin;
+    Vec3 lst[3] = {
+        Vec3(cos(ang), -sin(ang), 0.f),
+        Vec3(sin(ang), cos(ang), 0.f),
+        Vec3(0.f, 0.f, 1.f)
+    };
+    return Matrix(lst);
+}
