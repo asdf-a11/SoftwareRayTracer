@@ -15,9 +15,10 @@ vector<vector<Vec3>> screenBuffer;
 FixedArray<Mat> worldMatList;
 FixedArray<Face> worldFaceList;
 
+//Memory must be freed manually, this is to allow for copying without reallocation
 struct SpaceChunk{
     SpaceChunk* lst = nullptr;
-    int spaceChunkNumber = 0;
+    int spaceChunkNumber = 0;//could be unsigned char to improve cache locality but check would be needed to avoid overflow
     Face** faceList = nullptr;
     int faceNumber = 0;
     Vec3 pos;
@@ -346,11 +347,11 @@ Matrix ZRotationMatrix(real ang){
     };
     return Matrix(lst);
 }
+//faster than using sin on the FPU
 real ApproxSin(real angle){
     real sign = (angle < 0.f) ? -1.f : 1.f;
     real normAngle = std::abs(angle) / (2.f * PI);
-    normAngle -= std::floor(normAngle);
-    
+    normAngle -= std::floor(normAngle);    
     real o = (normAngle < 0.5f) ? normAngle : -(normAngle-1.f);
     return 16.f * (normAngle-0.5f) * o * sign;
 }
@@ -404,15 +405,14 @@ void GetNextHitSpaceChunk(Vec3 rayPos, Vec3 rayDir, vector<SpaceChunk*>* spaceCh
                 }
                 //sort using best algorithum for small numbers like 8
                 std::sort(buffer, buffer + numberAdded, 
-                    [](const auto& a, const auto& b) ->bool{
+                    [](const auto& a, const auto& b) -> bool{
                         return a.second > b.second;
                     }
                 );
                 //add all entries onto the end of the vector          
                 looph(i,numberAdded){
                     spaceChunkList->push_back(buffer[i].first);
-                }
-                
+                }                
             }
         }
         else{
@@ -464,7 +464,6 @@ Vec3 GetSkyColour(Vec3 rayDir){
     return Vec3(0.9,0.9,1.f) * std::min(std::max(0.2f,a*2.f), 1.f) * 0.8f;
 }
 Vec3 GetReflectedRayDir(Vec3 incomingRayDir, Vec3 faceNormal, Face* facePtr, int rayNumber, int numberOfSamples){
-    //using std::cos; using std::sin;
     const real goldenRatio = (1.f + sqrtf(5.f)) / 2.f;
     real x = (real)rayNumber / goldenRatio;
     x = x - std::floor(x);
