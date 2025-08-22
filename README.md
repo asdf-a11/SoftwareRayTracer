@@ -2,7 +2,9 @@
 
 ## Description
 
-My attempt at writing a ray tracer from scratch optimised to run on the CPU only. Also with the help from the book ()
+My attempt at writing a ray tracer from scratch optimised to run on the CPU.
+
+I used the book () to aid my understanding of ray tracing.
 
 ### Screenshots
 
@@ -33,10 +35,13 @@ Covers the main features of each new version.
 - Use of fibinacci latice for uniform sampling, provides less nose for fewer samples compared to random sampling
 - Combining triangles into quadralaterals where possible, to reduce the number of faces and improve performance
 
+![alt text](README_Images/perfChart.png)
+
 #### Version 1.0.1
+- Support for bmp textures
+- Direct light sampling
 
 ## Future improvments
 
-- Importance sampling to reduce noise
-- Improoved use of SIMD instructions / other optimization
+- Improved use of SIMD instructions / other optimization
 - Addition of glass and volumentrics

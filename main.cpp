@@ -384,7 +384,7 @@ int main(){
     #endif
 
     LoadEverything("Models/armoury/blenderLighting/LightingModel.obj");
-    #if true
+    #if false
     Window window(SCREEN_WIDTH,SCREEN_HEIGHT,"Raytracer");
     window.Init();
     //worldChunk.PrintInfo();
