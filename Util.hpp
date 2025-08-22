@@ -63,7 +63,9 @@ public:
                 return;
             }
         #endif
-        lst = (T*)malloc(size * sizeof(T));
+        //lst = (T*)malloc(size * sizeof(T));
+        //size_priv = size;
+        lst = new T[size];
         size_priv = size;
     }
     T& operator[] (uint index){
@@ -81,9 +83,7 @@ public:
         return size_priv;
     }
     ~FixedArray(){
-        if(lst!=nullptr){
-            free(lst);
-        }        
+        delete[] lst;
     }
 };
 template<class T>

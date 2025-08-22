@@ -6,6 +6,7 @@
 #include "Object.hpp"
 #include "Face.hpp"
 #include "Mat.hpp"
+#include "ReadBMP.hpp"
 
 using std::string;
 
@@ -45,7 +46,8 @@ void FillWorldMatList(string fileName, FixedArray<Mat>* worldMatList){
     vector<Mat> matList = {Mat()};
     //Default mat for shapes with no mat
     matList[matList.size()-1].colour = Vec3(0.7,0.3,0.3);
-    memcpy(matList[matList.size()-1].name, "None", sizeof("None"));
+    //memcpy(matList[matList.size()-1].name, "None", sizeof("None"));
+    matList.back().name = "None";
     string line;
     while(getline(file, line)){
         vector<string> wordList = SplitString(line, ' ');
@@ -54,13 +56,14 @@ void FillWorldMatList(string fileName, FixedArray<Mat>* worldMatList){
         if(lineMeaning == "newmtl"){
             Mat m;
             m.em = 0.f;
-            memset(m.name, null, sizeof(m.name));
-            memcpy(m.name, wordList[1].c_str(), std::min(m.NAME_SIZE-1, (int)wordList[1].size()) * sizeof(char));
+            //memset(m.name, null, sizeof(m.name));
+            //memcpy(m.name, wordList[1].c_str(), std::min(m.NAME_SIZE-1, (int)wordList[1].size()) * sizeof(char));
+            m.name = wordList[1];
             //m.name[NAME_SIZE-1] = null;
             matList.push_back(m);
         }
         else if(lineMeaning == "Kd"){
-            matList[matList.size()-1].colour = Vec3(stof(wordList[1]), stof(wordList[2]), stof(wordList[3]));
+            matList.back().colour = Vec3(stof(wordList[1]), stof(wordList[2]), stof(wordList[3]));
         }
         else if(lineMeaning == "Ke"){
             Vec3 c = Vec3(stof(wordList[1]), stof(wordList[2]), stof(wordList[3]));
@@ -69,22 +72,28 @@ void FillWorldMatList(string fileName, FixedArray<Mat>* worldMatList){
                 matList[matList.size()-1].em = 100.f;
             }  
         }
+        else if (lineMeaning == "map_Kd"){
+            matList.back().image = ReadBMP((char*)wordList[1].c_str());
+        }
     }
     int size = matList.size();
     worldMatList->AllocArray(size);
     looph(i,size){
-        (*worldMatList)[i] = matList[i];
+        Mat& m = matList[i];
+        Mat& wm = (*worldMatList)[i];
+        wm = m;
     }
 }
 vector<Object> ReadMeshFile(string fileName, FixedArray<Mat>* worldMatList){
     vector<Object> objList;
-    //string contents = FileToString(fileName);
     std::ifstream file(fileName);
     if(file.is_open() == false){
         cerr << "\n\nCouldnt open the file " << fileName << "!!!\n\n";
         exit(EXIT_FAILURE);
     }
     vector<Vec3> currentObjVertList;
+    vector<Vec2> currentObjTextureList;
+    vector<Vec3> currentObjNormalList;
     string line;
     int currentMatIndex = 0;
     while(getline(file,line)){
@@ -128,12 +137,32 @@ vector<Object> ReadMeshFile(string fileName, FixedArray<Mat>* worldMatList){
             }
             currentMatIndex = index;
         }
+        else if(lineMeaning == "vn"){
+            currentObjNormalList.push_back(Vec3(
+                std::stof(wordList[1]),
+                std::stof(wordList[2]),
+                std::stof(wordList[3])
+            ));
+        }
+        //Vertex texture coordinats
+        else if(lineMeaning == "vt"){
+            currentObjTextureList.push_back(Vec2(
+                std::stof(wordList[1]),
+                std::stof(wordList[2])
+            ));
+        }
+        //Face
         else if(lineMeaning == "f"){
-            int vertIndex[3] = {
-                std::stoi(wordList[1])-1,
-                std::stoi(wordList[2])-1,
-                std::stoi(wordList[3])-1,
-            };
+            int vertIndex[3];
+            int textureIndex[3];
+            int normalIndex[3];
+            looph(i,3){
+                vector<string> vertDataList = SplitString(wordList[i+1],'/');
+                vertIndex[i] = std::stoi(vertDataList[0])-1;
+                textureIndex[i] = std::stoi(vertDataList[1])-1;
+                normalIndex[i] = std::stoi(vertDataList[2])-1; 
+            }
+            //Check values
             looph(i,3){
                 if(vertIndex[i] >= currentObjVertList.size() || vertIndex[i] < 0){
                     cerr << "Invalid vert number\n";
@@ -145,8 +174,17 @@ vector<Object> ReadMeshFile(string fileName, FixedArray<Mat>* worldMatList){
                 currentObjVertList[vertIndex[1]],
                 currentObjVertList[vertIndex[2]]
             };
+            Vec2 textureList[3] = {
+                currentObjTextureList[textureIndex[0]],
+                currentObjTextureList[textureIndex[1]],
+                currentObjTextureList[textureIndex[2]]
+            };
+            Vec3 faceNormal = currentObjNormalList[normalIndex[0]] + 
+                            currentObjNormalList[normalIndex[0]] + 
+                            currentObjNormalList[normalIndex[0]];
+            faceNormal /= 3.f;
             objList[objList.size()-1].faceList.push_back(Face(
-                vertList, &(*worldMatList)[currentMatIndex]
+                vertList, &(*worldMatList)[currentMatIndex], faceNormal, textureList
             ));
         }
     }

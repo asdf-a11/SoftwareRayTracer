@@ -10,12 +10,16 @@
 #include "Matrix.hpp"
 #include "Object.hpp"
 #include "ObjectLoader.hpp"
+#include "ReadBMP.hpp"
 
 
 vector<vector<Vec3>> screenBuffer;
 vector<vector<Vec3>> depthBuffer;
+//Fixed arrays are usefull as the address of a element is gaurenteed to be constant 
+//unlike vector 
 FixedArray<Mat> worldMatList;
 FixedArray<Face> worldFaceList;
+vector<Face*> lightFaceList;
 
 #include "SpaceChunk.hpp"
 #include "DeNoiser.hpp"
@@ -179,6 +183,7 @@ std::pair<Vec3, Vec3> CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber,  Face*
     Vec3 hitNormal = FLOAT_MAX_VALUE;
     real minDistance = FLOAT_MAX_VALUE;
     Face* hitFacePtr = nullptr;
+    Vec3 hitPosition;
     while(true){
         GetNextHitSpaceChunk(rayPos, rayDir, &spaceChunkList);
         if(spaceChunkList.size() == 0){break;}
@@ -195,12 +200,54 @@ std::pair<Vec3, Vec3> CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber,  Face*
             real t = RayFaceCollision(rayPos, rayDir, currentFacePtr);
             if(t >= 0.f && t < minDistance){
                 minDistance = t;
+                //Bit weird computing hit here
+                hitPosition = rayPos + rayDir * minDistance;
                 hitFacePtr = currentFacePtr;
             }
         }
     }
     if(hitFacePtr != nullptr){
-        #if true
+
+        Vec3 hitRelToV0 = hitPosition - hitFacePtr->vertexList[0];
+        Vec3 e1 = hitFacePtr->vertexList[1] - hitFacePtr->vertexList[0];
+        Vec3 e2 = hitFacePtr->vertexList[2] - hitFacePtr->vertexList[0];
+        Vec2 u0u1 = hitFacePtr->textureCoords[1] - hitFacePtr->textureCoords[0];
+        Vec2 u0u2 = hitFacePtr->textureCoords[2] - hitFacePtr->textureCoords[0];
+        Vec3 n = hitFacePtr->GetTrueNormal();
+        Vec3 cols[3] = {e1,e2,n};
+        //Vec3 cols[3] = {
+        //    Vec3(0,-3,-2),
+        //    Vec3(1,-4,-2),
+        //    Vec3(-3,4,1)
+        //};
+        Matrix3x3 m = Matrix3x3(cols);
+        m = m.transpose();
+        //Matrix3x3 m = Matrix3x3({},true);
+        Matrix3x3 invM = m.inverse();
+
+        Vec3 inFaceCoords = invM * hitRelToV0;
+
+        Vec3 a[3] = {
+            Vec3(u0u1.x,u0u1.y,0),
+            Vec3(u0u1.x,u0u1.y,0),
+            Vec3(0,0,0)
+        };
+        Matrix3x3 m2 = Matrix3x3(a);
+        m2 = m2.transpose();
+        Vec3 uvCoords = m2 * inFaceCoords;
+        uvCoords += Vec3(hitFacePtr->textureCoords[0].x,hitFacePtr->textureCoords[0].y,0);
+
+        Vec3 b[3] = {
+            Vec3(hitFacePtr->mat->image.width,0,0),
+            Vec3(0,hitFacePtr->mat->image.height,0),
+            Vec3(0,0,0)
+        };
+        Matrix3x3 scaleToImgSize = Matrix3x3(b);
+        Vec3 pixelCoords = scaleToImgSize * uvCoords;
+
+
+
+        #if false
         colour = hitFacePtr->mat->colour * hitFacePtr->mat->em;
         hitNormal = hitFacePtr->normal;
         if(bounceNumber < MAX_BOUNCES && hitFacePtr->mat->em < 1.f){
@@ -219,12 +266,9 @@ std::pair<Vec3, Vec3> CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber,  Face*
             colour += hitFacePtr->mat->colour * avgOfColours;
         }
         #else
-        union{
-            SpaceChunk* ptr;
-            byte cList[3];
-        };
-        ptr = chunkToCheck;
-        colour = Vec3(cList[0], cList[1], cList[2]) / 255.f;
+        //Just return the colour of the face, good for debugging or testing
+        //colour = hitFacePtr->mat->colour;
+        colour = hitFacePtr->mat->image.GetPixel(pixelCoords.x,pixelCoords.y);
         #endif
     }
     else{
@@ -258,7 +302,7 @@ void InitBuffers(){
 void ClearScreenBuffer(){
     looph(i,screenBuffer.size()){
         looph(j,screenBuffer[i].size()){
-            screenBuffer[i][j] = Vec3(0);
+            screenBuffer[i][j] = Vec3(0.f, 0.f, 0.f);
         }
     }
 }
@@ -293,23 +337,19 @@ vector<Face*> GetWorldFacePtrList(){
     }
     return out;
 }
-int main(){
-    using namespace Graphics;
-    InitBuffers();
-
-    #if false
-            //Position used for testing test scene
-        cam.pos = Vec3(-4,2,5);
-        cam.dir = Vec3(0,deg2rad(100.f),0);
-    #else
-        //cam.pos = Vec3(0.38f, 1.f, 9.17f);
-        //cam.dir = Vec3(0,3.63f, 0);
-        cam.pos = Vec3(-6.51, 2, 8.59);
-        cam.dir = Vec3(0, 2.3, 0);
-    #endif
-
-    string filePath = "Models/uploads_files_3581871_LION_STATUE_obj/me.obj";//"Models/uploads_files_3825299_Low+poly+bedroom_Obj/triModel.obj";
-    objectList = ReadMeshFile(filePath, &worldMatList);
+void FillEmmisiveFaceList(){
+    lightFaceList = {};
+    looph(i,worldFaceList.size()){
+        if(worldFaceList[i].mat->em > 0.f){
+            lightFaceList.push_back(&(worldFaceList[i]));
+        }
+    }
+    cout << "Number of light faces " << lightFaceList.size() << "\n"; 
+}
+void LoadEverything(string objPath){
+    //string filePath = "Models/uploads_files_3581871_LION_STATUE_obj/me.obj";//"Models/uploads_files_3825299_Low+poly+bedroom_Obj/triModel.obj";
+    objectList = ReadMeshFile(objPath, &worldMatList);
+    //Set position of entire object
     objectList[objectList.size()-1].pos = Vec3(-2,-2,5);
 
     GenerateWorldFaceList(objectList);
@@ -325,14 +365,33 @@ int main(){
     //Remove all
     worldChunk.RemoveDudFaces(&facesToRemove);
     #endif
+    FillEmmisiveFaceList();
+}
+int main(){
+    using namespace Graphics;
+    InitBuffers();
+
+    #if false
+            //Position used for testing test scene
+        cam.pos = Vec3(-4,2,5);
+        cam.dir = Vec3(0,deg2rad(100.f),0);
+    #else
+        //cam.pos = Vec3(0.38f, 1.f, 9.17f);
+        //cam.dir = Vec3(0,3.63f, 0);
+        //cam.pos = Vec3(-6.51, 2, 8.59);
+        cam.dir = Vec3(0, 0, 0);
+        cam.pos = Vec3(0, 0, -20);
+    #endif
+
+    LoadEverything("Models/armoury/blenderLighting/LightingModel.obj");
     #if true
     Window window(SCREEN_WIDTH,SCREEN_HEIGHT,"Raytracer");
     window.Init();
-    worldChunk.PrintInfo();
+    //worldChunk.PrintInfo();
 
     window.StartLoop([](Graphics::Window* window){
         cout << "camPos=" << cam.pos << " camDir=" << cam.dir << "\n";
-        #if true
+        #if false
             if(window->frameCounter <= 10)
                 ExecuteRayTracer(window->frameCounter);
             else{
