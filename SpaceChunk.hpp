@@ -29,16 +29,17 @@ struct SpaceChunk{
         looph(faceCounter,perantHitFaceList->size()){
             Face* facePtr = (*perantHitFaceList)[faceCounter];
 
-            real minx = facePtr->vertexList[0].x;
-            real miny = facePtr->vertexList[0].y;
-            real minz = facePtr->vertexList[0].z;
+            real minx = facePtr->v0.x;
+            real miny = facePtr->v0.y;
+            real minz = facePtr->v0.z;
 
             real maxx = minx;
             real maxy = miny;
             real maxz = minz;
 
+            Vec3 vertLst[2] = {facePtr->v0v1+facePtr->v0,facePtr->v0v2+facePtr->v0};
             loop(i,1,3){
-                Vec3 vert = facePtr->vertexList[i];
+                Vec3 vert = vertLst[i-1];
                 maxx = std::max(maxx, vert.x);
                 maxy = std::max(maxy, vert.y);
                 maxz = std::max(maxz, vert.z);
@@ -167,12 +168,17 @@ struct SpaceChunk{
                 //Check if two verticies the same
                 int sameCounter = 0;
                 //Record vertex that is not the same
-                int notSameIndexForFace1 = -1;                
+                int notSameIndexForFace1 = -1;   
+                Vec3 vertexList[3] = {
+                    facePtr1->v0,
+                    facePtr1->v0v1+facePtr1->v0,
+                    facePtr1->v0v2+facePtr1->v0
+                };             
                 looph(vertCounter1, 3){
-                    Vec3 vert = facePtr1->vertexList[vertCounter1];
+                    Vec3 vert = vertexList[vertCounter1];
                     int equalToAny = vertCounter1;
                     looph(vertCounter2, 3){
-                        if(vert == facePtr2->vertexList[vertCounter2]){
+                        if(vert == vertexList[vertCounter2]){
                             sameCounter++;
                             equalToAny = -1;
                             break;
@@ -191,7 +197,7 @@ struct SpaceChunk{
                 looph(vertCounter2, 3){
                     notSameIndexForFace2 = vertCounter2;
                     looph(vertCounter1, 3){
-                        if(facePtr1->vertexList[vertCounter1] == facePtr2->vertexList[vertCounter2]){
+                        if(vertexList[vertCounter1] == vertexList[vertCounter2]){
                             notSameIndexForFace2 = -1;
                         }
                     }
@@ -203,19 +209,19 @@ struct SpaceChunk{
                 //Compare non-same vertex
                 //P is not same for face 1, F is not same for face 2
                 //P + I + J = F
-                Vec3 P = facePtr1->vertexList[notSameIndexForFace1];
-                Vec3 I = facePtr1->vertexList[(notSameIndexForFace1 + 1) % 3] - P;
-                Vec3 J = facePtr1->vertexList[(notSameIndexForFace1 + 2) % 3] - P;
-                Vec3 F = facePtr2->vertexList[notSameIndexForFace2];
+                Vec3 P = vertexList[notSameIndexForFace1];
+                Vec3 I = vertexList[(notSameIndexForFace1 + 1) % 3] - P;
+                Vec3 J = vertexList[(notSameIndexForFace1 + 2) % 3] - P;
+                Vec3 F = vertexList[notSameIndexForFace2];
                 if(P + I + J == F){
                     //Set face 1 to be 4 vertex
                     facePtr1->isRectangle = true;
                     //IMPORTANT
                     //not same vertex NEEDS to be the first vertex so then I and J vectors are correct
                     if(notSameIndexForFace1 != 0){
-                        Vec3 temp = facePtr1->vertexList[0];
-                        facePtr1->vertexList[0] = facePtr1->vertexList[notSameIndexForFace1];
-                        facePtr1->vertexList[notSameIndexForFace1] = temp;
+                        Vec3 temp = vertexList[0];
+                        vertexList[0] = vertexList[notSameIndexForFace1];
+                        vertexList[notSameIndexForFace1] = temp;
                         notSameIndexForFace1 = 0;                        
                     }
                     faceRemovalList->push_back(facePtr2);
@@ -267,17 +273,27 @@ struct SpaceChunk{
         uint vertCount = 0;
         looph(i,worldFaceList.size()){
             Face& f = worldFaceList[i];
+            Vec3 vertexList[3] = {
+                f.v0,
+                f.v0v1+f.v0,
+                f.v0v2+f.v0
+            }; 
             looph(j,3){
-                avgPos += f.vertexList[j];                
+                avgPos += vertexList[j];                
                 vertCount++;
             }
         }
         avgPos /= vertCount;
         looph(i,worldFaceList.size()){
             Face& f = worldFaceList[i];
+            Vec3 vertexList[3] = {
+                f.v0,
+                f.v0v1+f.v0,
+                f.v0v2+f.v0
+            }; 
             looph(j,3){
                looph(k,3){
-                    maxSize = std::max(maxSize,std::abs(f.vertexList[j][k] - avgPos[k]));
+                    maxSize = std::max(maxSize,std::abs(vertexList[j][k] - avgPos[k]));
                 } 
             }
         }        

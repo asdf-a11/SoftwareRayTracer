@@ -113,18 +113,18 @@ void PrintFaceList(Face* lst, int size){
         cout << "Vec3(" << v.x << ", " << v.y << ", " << v.z << ")";
     };
     looph(i,size){
-        printVertex(lst[i].vertexList[0]); cout << ", ";
-        printVertex(lst[i].vertexList[1]); cout << ", ";
-        printVertex(lst[i].vertexList[2]); cout << "\n";
+        //printVertex(lst[i].vertexList[0]); cout << ", ";
+        //printVertex(lst[i].vertexList[1]); cout << ", ";
+        //printVertex(lst[i].vertexList[2]); cout << "\n";
     }
 }
 real RayFaceCollision(Vec3 rayPos, Vec3 rayDir, Face* facePtr){
     //V0 IS ALLWAYS UNIQUE VERTEX FOR WHEN isRectangle is true
-    Vec3& v0 = facePtr->vertexList[0];
-    Vec3& v1 = facePtr->vertexList[1];
-    Vec3& v2 = facePtr->vertexList[2];
-    Vec3 edge1 = v1 - v0;
-    Vec3 edge2 = v2 - v0;
+    Vec3& v0 = facePtr->v0;
+    //Vec3& v1 = facePtr->vertexList[1];
+    //Vec3& v2 = facePtr->vertexList[2];
+    Vec3 edge1 = facePtr->v0v1;
+    Vec3 edge2 = facePtr->v0v2;
     Vec3 h = cross(rayDir, edge2);
     real a = dot(edge1, h);
     if (std::abs(a) < EPSILON) return -1.f; // Parallel
@@ -163,7 +163,7 @@ Vec3 GetReflectedRayDir(Vec3 incomingRayDir, Vec3 faceNormal, Face* facePtr, int
         ApproxSin(theta)*ApproxSin(phi)
     );
     Vec3 A = faceNormal;
-    Vec3 B = (facePtr->vertexList[1] - facePtr->vertexList[0]).normalize();
+    Vec3 B = (facePtr->v0v1).normalize();
     Vec3 C = cross(A,B).normalize();
     //sp Y must times by A to maintain up direction
     return Vec3(
@@ -244,7 +244,7 @@ std::pair<Vec3, Vec3> CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber,  Face*
 
         #if true
         if(hitFacePtr->mat->image.buffer != nullptr){
-            Vec3 hitRelPos = hitPosition - hitFacePtr->vertexList[0];
+            Vec3 hitRelPos = hitPosition - hitFacePtr->v0;
             Vec3 uvOffset = Vec3(hitFacePtr->uvPosOnImage.x,hitFacePtr->uvPosOnImage.y,0);
             Vec3 pixelCoords = uvOffset + (hitFacePtr->toImageCoords * hitRelPos);
             colour = hitFacePtr->mat->image.GetPixel(pixelCoords.x,pixelCoords.y);
@@ -329,7 +329,7 @@ void GenerateWorldFaceList(vector<Object>& objList){
     looph(i,objList.size()){
         looph(f, objList[i].faceList.size()){
             Face nf = objList[i].faceList[f];
-            looph(j,3){nf.vertexList[j] += objList[i].pos;}
+            nf.v0 += objList[i].pos;
             nf.SetNormal();
             nf.isRectangle = false;
             worldFaceList[counter++] = nf;

@@ -7,10 +7,10 @@ struct Face{
     bool isRectangle = false;
     Mat* mat;
     
-    //Vec3 v0;
-    //Vec3 v0v1;
-    //Vec3 v0v2;
-    Vec3 vertexList[VERT_COUNT];
+    Vec3 v0;
+    Vec3 v0v1;
+    Vec3 v0v2;
+    //Vec3 vertexList[VERT_COUNT];
     
     
     //Pre compute position to UV mapping if necessary
@@ -25,8 +25,10 @@ struct Face{
     Face(Vec3 lst[3], Mat* mat, Vec3 faceNormal, Vec2 textureCoords[3]){
         this->mat = mat;
         normal = faceNormal;
+        v0 = lst[0];
+        v0v1 = lst[1] - v0;
+        v0v2 = lst[2] - v0;
         looph(i,VERT_COUNT){
-            vertexList[i] = lst[i];
             this->textureCoords[i] = textureCoords[i];
         }
     }
@@ -37,8 +39,8 @@ struct Face{
         }
         //Need to store for later use
         uvPosOnImage = textureCoords[0] * Vec2(mat->image.width, mat->image.height);
-        Vec3 e1 = vertexList[1] - vertexList[0];
-        Vec3 e2 = vertexList[2] - vertexList[0];
+        Vec3 e1 = v0v1;
+        Vec3 e2 = v0v2;
         Vec2 u0u1 = textureCoords[1] - textureCoords[0];
         Vec2 u0u2 = textureCoords[2] - textureCoords[0];
         Vec3 n = GetTrueNormal();
@@ -61,12 +63,12 @@ struct Face{
         };
         Matrix3x3 scaleToImgSize = Matrix3x3(rows);
         
-        toImageCoords = (scaleToImgSize * (toUVCoords * toFaceBasis));
+        toImageCoords = (scaleToImgSize * (toUVCoords * toFaceBasis));        
     }
 
     Vec3 GetTrueNormal(){
-        Vec3 i = vertexList[1] - vertexList[0];
-        Vec3 j = vertexList[2] - vertexList[0];
+        Vec3 i = v0v1;
+        Vec3 j = v0v2;
         return cross(i,j).normalize();
     }
     //Sometimes a obj file comes with normals, else calculate
