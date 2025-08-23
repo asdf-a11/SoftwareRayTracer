@@ -261,9 +261,11 @@ struct SpaceChunk{
         }
     }
     void PrintInfo(int tabNumber=0){
-        cout << string(tabNumber, '-');
-        cout << "SC childNumber=" << spaceChunkNumber << " faceCount=" << faceNumber << " size="<< size << " pos=" << pos << " \n";
-        looph(i,spaceChunkNumber){
+        if(spaceChunkNumber==0){
+            cout << string(tabNumber, '-');
+            cout << "SC childNumber=" << spaceChunkNumber << " faceCount=" << faceNumber << " size="<< size << " pos=" << pos << " \n";
+        }
+       looph(i,spaceChunkNumber){
             lst[i].PrintInfo(tabNumber+1);
         }
     }

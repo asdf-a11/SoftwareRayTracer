@@ -2,6 +2,7 @@
 #include <malloc.h>
 #include <iostream>
 #include <algorithm>
+#include <cstdlib>
 #include <set>
 #include "Settings.hpp"
 #include "Util.hpp"
@@ -172,8 +173,14 @@ Vec3 GetReflectedRayDir(Vec3 incomingRayDir, Vec3 faceNormal, Face* facePtr, int
         A[2] * sp[1] + B[2] * sp[0] + C[2] * sp[2]
     );
 }
+struct CastRay_Return{
+    Vec3 hitNormal;
+    Vec3 colour;
+    real distance;
+    Face* hitFacePtr;
+};
 //Returns colour and distance of collision
-std::pair<Vec3, Vec3> CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber,  Face* cantHitFace=nullptr)
+CastRay_Return CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber,  Face* cantHitFace=nullptr)
 {
     static vector<SpaceChunk*> spaceChunkList;
     spaceChunkList.clear();
@@ -205,43 +212,12 @@ std::pair<Vec3, Vec3> CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber,  Face*
                 hitFacePtr = currentFacePtr;
             }
         }
+
+        //if(hitFacePtr != nullptr){
+        //    break;
+        //}
     }
     if(hitFacePtr != nullptr){
-
-        /*
-        Vec3 hitRelToV0 = hitPosition - hitFacePtr->vertexList[0];
-        Vec3 e1 = hitFacePtr->vertexList[1] - hitFacePtr->vertexList[0];
-        Vec3 e2 = hitFacePtr->vertexList[2] - hitFacePtr->vertexList[0];
-        Vec2 u0u1 = hitFacePtr->textureCoords[1] - hitFacePtr->textureCoords[0];
-        Vec2 u0u2 = hitFacePtr->textureCoords[2] - hitFacePtr->textureCoords[0];
-        Vec3 n = hitFacePtr->GetTrueNormal();
-        Vec3 cols[3] = {e1,e2,n};
-        Matrix3x3 m = Matrix3x3(cols);
-        m = m.transpose();
-        Matrix3x3 invM = m.inverse();
-
-        Vec3 inFaceCoords = invM * hitRelToV0;
-
-        Vec3 a[3] = {
-            Vec3(u0u1.x,u0u1.y,0),
-            Vec3(u0u1.x,u0u1.y,0),
-            Vec3(0,0,0)
-        };
-        Matrix3x3 m2 = Matrix3x3(a);
-        m2 = m2.transpose();
-        Vec3 uvCoords = m2 * inFaceCoords;
-        uvCoords += Vec3(hitFacePtr->textureCoords[0].x,hitFacePtr->textureCoords[0].y,0);
-
-        Vec3 b[3] = {
-            Vec3(hitFacePtr->mat->image.width,0,0),
-            Vec3(0,hitFacePtr->mat->image.height,0),
-            Vec3(0,0,0)
-        };
-        Matrix3x3 scaleToImgSize = Matrix3x3(b);
-        Vec3 pixelCoords = scaleToImgSize * uvCoords;*/
-
-
-
         #if true
         if(hitFacePtr->mat->image.buffer != nullptr){
             Vec3 hitRelPos = hitPosition - hitFacePtr->v0;
@@ -252,20 +228,44 @@ std::pair<Vec3, Vec3> CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber,  Face*
         else{
             colour = hitFacePtr->mat->colour;
         }        
-        hitNormal = hitFacePtr->normal;
+
         if(bounceNumber < MAX_BOUNCES && hitFacePtr->mat->em < 1.f){
             Vec3 avgOfColours = Vec3(0.f);
             const int SAMPLE_COUNT = SAMPLES_FOR_BOUNCE_NUMBER[bounceNumber];
+            const int DIRECT_SAMPLE_COUNT = SAMPLE_COUNT * DIRECT_LIGHTING_PERCENT;
+            const int STRATIFIED_SAMPLE_COUNT = SAMPLE_COUNT - DIRECT_SAMPLE_COUNT;
             Vec3 faceNormal = hitFacePtr->normal;
             if(dot(faceNormal, rayDir) > 0.f){
                 faceNormal *= -1.f;
             }
-            looph(rayCounter, SAMPLE_COUNT){
-                Vec3 newDir = GetReflectedRayDir(rayDir, faceNormal, hitFacePtr,  rayCounter, SAMPLE_COUNT);
-                std::pair<Vec3, Vec3> rayValues = CastRay(hitPosition, newDir, bounceNumber+1, hitFacePtr);
-                avgOfColours += rayValues.first;
+            hitNormal = faceNormal;
+            //Certain amount for direct light sampling
+            looph(rayCounter, lightFaceList.size()){ //DIRECT_SAMPLE_COUNT
+                static unsigned long long litFaceIndex = 0;
+                Face* litFacePtr = lightFaceList[rayCounter];
+                //Face* litFacePtr = lightFaceList[litFaceIndex%lightFaceList.size()];
+                Vec3 middleOfFace = litFacePtr->v0 + litFacePtr->v0v1*0.5f + litFacePtr->v0v2*0.1f;
+                Vec3 directionVector = (middleOfFace-hitPosition);
+                real faceArea = litFacePtr->v0v1.length() * litFacePtr->v0v2.length() * 0.5f;
+                //normalize ?
+                litFaceIndex++;// = sq(litFaceIndex+1);
+                //if(dot(faceNormal, directionVector) < 0.f){
+                //    //rayCounter--;
+                //    continue;
+                //}
+                //Vec3 newDir = GetReflectedRayDir(rayDir, faceNormal, hitFacePtr,  rayCounter, STRATIFIED_SAMPLE_COUNT);
+                auto rayValues = CastRay(hitPosition, directionVector, MAX_BOUNCES, hitFacePtr);
+                
+                avgOfColours += (rayValues.colour) * faceArea / sq(rayValues.distance);
             }
-            avgOfColours /= SAMPLE_COUNT;
+            //Rest for stratified light sampling
+            looph(rayCounter, STRATIFIED_SAMPLE_COUNT){
+                Vec3 newDir = GetReflectedRayDir(rayDir, faceNormal, hitFacePtr,  rayCounter, STRATIFIED_SAMPLE_COUNT);
+                auto rayValues = CastRay(hitPosition, newDir, MAX_BOUNCES, hitFacePtr);//bounceNumber+1
+                avgOfColours += rayValues.colour;
+            }
+            //avgOfColours /= SAMPLE_COUNT;
+            avgOfColours /= 2.f * PI;
             colour = colour * hitFacePtr->mat->em + colour * avgOfColours;
         }
         else{
@@ -280,17 +280,29 @@ std::pair<Vec3, Vec3> CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber,  Face*
     else{
         colour = GetSkyColour(rayDir);
     }
-    return std::pair<Vec3, Vec3>(colour, hitNormal);
+    CastRay_Return crr;
+    crr.colour = colour;
+    crr.hitNormal = hitNormal;
+    crr.distance = (rayDir * minDistance).length();
+    crr.hitFacePtr = hitFacePtr;
+    return crr;
 }
 
 void ExecuteRayTracer(int frameCounter){
     const int step = 5;
+    int counter = 0;
     for(int x = frameCounter % step; x < SCREEN_WIDTH; x += step){
         for(int y = frameCounter % 2; y < SCREEN_HEIGHT; y += 2){
             Vec3 rayDir = GetRayDir(x,y,cam.dir);
-            std::pair<Vec3, Vec3> pixelData = CastRay(cam.pos, rayDir, 0);
-            screenBuffer[x][y] = pixelData.first;
-            depthBuffer[x][y] = pixelData.second;
+            auto pixelData = CastRay(cam.pos, rayDir, 0);
+            screenBuffer[x][y] = pixelData.colour;
+            depthBuffer[x][y] = pixelData.hitNormal;
+
+            if(counter % 10 == 0){
+                cout << "dont percent " << (real)counter / (real)(SCREEN_HEIGHT*SCREEN_WIDTH)* 100.f << "\n";
+            }
+            counter ++;
+        
         }
     }
     if(frameCounter % step == 0){
@@ -375,6 +387,7 @@ void LoadEverything(string objPath){
     cout << "Number of faces " << worldFaceList.size() << "\n";
     //Remove all
     worldChunk.RemoveDudFaces(&facesToRemove);
+    //worldChunk.PrintInfo();
     #endif
     FillEmmisiveFaceList();
     PreComputeAllFacesUVMappings();
@@ -396,7 +409,7 @@ int main(){
     #endif
 
     LoadEverything("Models/armoury/blenderLighting/LightingModel.obj");
-    #if false
+    #if true
     Window window(SCREEN_WIDTH,SCREEN_HEIGHT,"Raytracer");
     window.Init();
     //worldChunk.PrintInfo();

@@ -69,7 +69,7 @@ void FillWorldMatList(string fileName, FixedArray<Mat>* worldMatList){
             Vec3 c = Vec3(stof(wordList[1]), stof(wordList[2]), stof(wordList[3]));
             if(c.x + c.y + c.z > EPSILON*3.f){
                 matList[matList.size()-1].colour = c;
-                matList[matList.size()-1].em = 10.f;//10000
+                matList[matList.size()-1].em = 10000.f;//10000
             }  
         }
         else if (lineMeaning == "map_Kd"){
