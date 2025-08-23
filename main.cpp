@@ -208,6 +208,7 @@ std::pair<Vec3, Vec3> CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber,  Face*
     }
     if(hitFacePtr != nullptr){
 
+        /*
         Vec3 hitRelToV0 = hitPosition - hitFacePtr->vertexList[0];
         Vec3 e1 = hitFacePtr->vertexList[1] - hitFacePtr->vertexList[0];
         Vec3 e2 = hitFacePtr->vertexList[2] - hitFacePtr->vertexList[0];
@@ -237,12 +238,15 @@ std::pair<Vec3, Vec3> CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber,  Face*
             Vec3(0,0,0)
         };
         Matrix3x3 scaleToImgSize = Matrix3x3(b);
-        Vec3 pixelCoords = scaleToImgSize * uvCoords;
+        Vec3 pixelCoords = scaleToImgSize * uvCoords;*/
 
 
 
         #if true
         if(hitFacePtr->mat->image.buffer != nullptr){
+            Vec3 hitRelPos = hitPosition - hitFacePtr->vertexList[0];
+            Vec3 uvOffset = Vec3(hitFacePtr->uvPosOnImage.x,hitFacePtr->uvPosOnImage.y,0);
+            Vec3 pixelCoords = uvOffset + (hitFacePtr->toImageCoords * hitRelPos);
             colour = hitFacePtr->mat->image.GetPixel(pixelCoords.x,pixelCoords.y);
         }
         else{
@@ -348,6 +352,11 @@ void FillEmmisiveFaceList(){
     }
     cout << "Number of light faces " << lightFaceList.size() << "\n"; 
 }
+void PreComputeAllFacesUVMappings(){
+    looph(i,worldFaceList.size()){
+        worldFaceList[i].PreComputeUVMappings();
+    }
+}
 void LoadEverything(string objPath){
     //string filePath = "Models/uploads_files_3581871_LION_STATUE_obj/me.obj";//"Models/uploads_files_3825299_Low+poly+bedroom_Obj/triModel.obj";
     objectList = ReadMeshFile(objPath, &worldMatList);
@@ -368,6 +377,7 @@ void LoadEverything(string objPath){
     worldChunk.RemoveDudFaces(&facesToRemove);
     #endif
     FillEmmisiveFaceList();
+    PreComputeAllFacesUVMappings();
 }
 int main(){
     using namespace Graphics;
