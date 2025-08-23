@@ -120,6 +120,9 @@ Elapsed Time:	4.545s
        5.080448000 seconds user
        0.015988000 seconds sys
 
+18: armoury red compter
+    31 s
+
 
 
 

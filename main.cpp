@@ -215,14 +215,8 @@ std::pair<Vec3, Vec3> CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber,  Face*
         Vec2 u0u2 = hitFacePtr->textureCoords[2] - hitFacePtr->textureCoords[0];
         Vec3 n = hitFacePtr->GetTrueNormal();
         Vec3 cols[3] = {e1,e2,n};
-        //Vec3 cols[3] = {
-        //    Vec3(0,-3,-2),
-        //    Vec3(1,-4,-2),
-        //    Vec3(-3,4,1)
-        //};
         Matrix3x3 m = Matrix3x3(cols);
         m = m.transpose();
-        //Matrix3x3 m = Matrix3x3({},true);
         Matrix3x3 invM = m.inverse();
 
         Vec3 inFaceCoords = invM * hitRelToV0;
@@ -247,8 +241,13 @@ std::pair<Vec3, Vec3> CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber,  Face*
 
 
 
-        #if false
-        colour = hitFacePtr->mat->colour * hitFacePtr->mat->em;
+        #if true
+        if(hitFacePtr->mat->image.buffer != nullptr){
+            colour = hitFacePtr->mat->image.GetPixel(pixelCoords.x,pixelCoords.y);
+        }
+        else{
+            colour = hitFacePtr->mat->colour;
+        }        
         hitNormal = hitFacePtr->normal;
         if(bounceNumber < MAX_BOUNCES && hitFacePtr->mat->em < 1.f){
             Vec3 avgOfColours = Vec3(0.f);
@@ -259,11 +258,14 @@ std::pair<Vec3, Vec3> CastRay(Vec3 rayPos, Vec3 rayDir, int bounceNumber,  Face*
             }
             looph(rayCounter, SAMPLE_COUNT){
                 Vec3 newDir = GetReflectedRayDir(rayDir, faceNormal, hitFacePtr,  rayCounter, SAMPLE_COUNT);
-                std::pair<Vec3, Vec3> rayValues = CastRay(rayDir*minDistance + rayPos, newDir, bounceNumber+1, hitFacePtr);
+                std::pair<Vec3, Vec3> rayValues = CastRay(hitPosition, newDir, bounceNumber+1, hitFacePtr);
                 avgOfColours += rayValues.first;
             }
             avgOfColours /= SAMPLE_COUNT;
-            colour += hitFacePtr->mat->colour * avgOfColours;
+            colour = colour * hitFacePtr->mat->em + colour * avgOfColours;
+        }
+        else{
+            colour = colour * hitFacePtr->mat->em;
         }
         #else
         //Just return the colour of the face, good for debugging or testing
@@ -379,8 +381,8 @@ int main(){
         //cam.pos = Vec3(0.38f, 1.f, 9.17f);
         //cam.dir = Vec3(0,3.63f, 0);
         //cam.pos = Vec3(-6.51, 2, 8.59);
-        cam.dir = Vec3(0, 0, 0);
-        cam.pos = Vec3(0, 0, -20);
+        cam.dir = Vec3(0, -6.48365, 0);
+        cam.pos = Vec3(-1.5872, 10, -0.974691);
     #endif
 
     LoadEverything("Models/armoury/blenderLighting/LightingModel.obj");
