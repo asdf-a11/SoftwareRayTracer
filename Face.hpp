@@ -28,8 +28,10 @@ struct Face{
         v0 = lst[0];
         v0v1 = lst[1] - v0;
         v0v2 = lst[2] - v0;
-        looph(i,VERT_COUNT){
-            this->textureCoords[i] = textureCoords[i];
+        if(textureCoords != nullptr){
+            looph(i,VERT_COUNT){
+                this->textureCoords[i] = textureCoords[i];
+            }
         }
     }
 
@@ -75,5 +77,6 @@ struct Face{
     //them with this function
     void SetNormal(){
         normal = GetTrueNormal();
+        normal = Vec3(0,0,1);
     }
 };

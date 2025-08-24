@@ -9,7 +9,7 @@ const int SCREEN_HEIGHT = 600;//1080;//700;
 const constexpr real FOV = deg2rad(90.0f);
 const int SPACE_CHUNK_MAX_FACES = 6;
 const constexpr real SPACE_CHUNK_DUPLICATE_FACE = 1.8f;
-const constexpr real DIRECT_LIGHTING_PERCENT = 1.0f;
+const constexpr real DIRECT_LIGHTING_PERCENT = 0.0f;
 const int SAMPLES_FOR_BOUNCE_NUMBER[MAX_BOUNCES] = {
-    50//500//50,10
+    30//500//50,10
 };

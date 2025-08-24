@@ -154,6 +154,7 @@ vector<Object> ReadMeshFile(string fileName, FixedArray<Mat>* worldMatList){
         //Face
         else if(lineMeaning == "f"){
             int vertIndex[3];
+            #if false
             int textureIndex[3];
             int normalIndex[3];
             looph(i,3){
@@ -186,6 +187,26 @@ vector<Object> ReadMeshFile(string fileName, FixedArray<Mat>* worldMatList){
             objList[objList.size()-1].faceList.push_back(Face(
                 vertList, &(*worldMatList)[currentMatIndex], faceNormal, textureList
             ));
+            #else
+            looph(i,3){
+                vertIndex[i] = std::stoi(wordList[i+1])-1;
+            }
+            //Check values
+            looph(i,3){
+                if(vertIndex[i] >= currentObjVertList.size() || vertIndex[i] < 0){
+                    cerr << "Invalid vert number\n";
+                    exit(EXIT_FAILURE);
+                }
+            }
+            Vec3 vertList[3] = {
+                currentObjVertList[vertIndex[0]],
+                currentObjVertList[vertIndex[1]],
+                currentObjVertList[vertIndex[2]]
+            };
+            objList[objList.size()-1].faceList.push_back(Face(
+                vertList, &(*worldMatList)[currentMatIndex], Vec3(0,0,0), nullptr
+            ));
+            #endif
         }
     }
     file.close();

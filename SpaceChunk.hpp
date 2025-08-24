@@ -173,12 +173,17 @@ struct SpaceChunk{
                     facePtr1->v0,
                     facePtr1->v0v1+facePtr1->v0,
                     facePtr1->v0v2+facePtr1->v0
-                };             
+                };     
+                Vec3 vertexList2[3] = {
+                    facePtr2->v0,
+                    facePtr2->v0v1+facePtr2->v0,
+                    facePtr2->v0v2+facePtr2->v0
+                };        
                 looph(vertCounter1, 3){
                     Vec3 vert = vertexList[vertCounter1];
                     int equalToAny = vertCounter1;
                     looph(vertCounter2, 3){
-                        if(vert == vertexList[vertCounter2]){
+                        if(vert == vertexList2[vertCounter2]){
                             sameCounter++;
                             equalToAny = -1;
                             break;
@@ -197,7 +202,7 @@ struct SpaceChunk{
                 looph(vertCounter2, 3){
                     notSameIndexForFace2 = vertCounter2;
                     looph(vertCounter1, 3){
-                        if(vertexList[vertCounter1] == vertexList[vertCounter2]){
+                        if(vertexList[vertCounter1] == vertexList2[vertCounter2]){
                             notSameIndexForFace2 = -1;
                         }
                     }
@@ -212,7 +217,7 @@ struct SpaceChunk{
                 Vec3 P = vertexList[notSameIndexForFace1];
                 Vec3 I = vertexList[(notSameIndexForFace1 + 1) % 3] - P;
                 Vec3 J = vertexList[(notSameIndexForFace1 + 2) % 3] - P;
-                Vec3 F = vertexList[notSameIndexForFace2];
+                Vec3 F = vertexList2[notSameIndexForFace2];
                 if(P + I + J == F){
                     //Set face 1 to be 4 vertex
                     facePtr1->isRectangle = true;
@@ -222,6 +227,19 @@ struct SpaceChunk{
                         Vec3 temp = vertexList[0];
                         vertexList[0] = vertexList[notSameIndexForFace1];
                         vertexList[notSameIndexForFace1] = temp;
+                        //
+                        //facePtr1->v0 = vertexList[0];
+                        //Vec3* lst[3] = {&(facePtr1->v0), &(facePtr1->v0v1), &(facePtr1->v0v1)};
+                        //if(notSameIndexForFace1 == 0){
+                        //    facePtr1->v0 = temp;
+                        //}
+                        //else{
+                        //    *(lst[notSameIndexForFace1]) = vertexList[notSameIndexForFace1] - temp;
+                        //}                      
+                        //facePtr1->v0 = temp;
+                        facePtr1->v0 = vertexList[0];
+                        facePtr1->v0v1 = vertexList[1] - vertexList[0];
+                        facePtr1->v0v2 = vertexList[2] - vertexList[0];
                         notSameIndexForFace1 = 0;                        
                     }
                     faceRemovalList->push_back(facePtr2);
